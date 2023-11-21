@@ -1,0 +1,44 @@
+name: Setup SSH
+description: Action to setup SSH connection and update known_hosts at the job level
+inputs:
+  hosts:
+    required: true
+    description: A list of hosts to add to ~/.ssh/known_hosts
+  private-key:
+    required: true
+    description: Private key as a string
+  private-key-name:
+    required: false
+    description: name of ephemeral generated private key file
+    default: 'priv.key'
+outputs:
+  private-key-path:
+    value: ${{ steps.pk.outputs.path }}
+    description: Path to the generated private key file
+runs:
+  using: "composite"
+  steps:
+    - name: Add ~/.ssh directory
+      shell: bash
+      run: |
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+    - name: Add private key
+      shell: bash
+      id: pk
+      env:
+        KEY: ${{ inputs.private-key }}
+        KEY_NAME: ${{ inputs.private-key-name }}
+      run: |
+        echo "$KEY" > ~/.ssh/$KEY_NAME
+        chmod 600 ~/.ssh/$KEY_NAME
+        echo "path=~/.ssh/$KEY_NAME" >> $GITHUB_OUTPUT
+    - name: Add to known_hosts
+      shell: bash
+      env: 
+        HOSTS: ${{ inputs.hosts }}
+      run: |
+        for host in $HOSTS; do
+          ssh-keyscan $host >> ~/.ssh/known_hosts
+        done
+        chmod 600 ~/.ssh/known_hosts 
