@@ -25,11 +25,11 @@ steps:
     uses: access-nri/actions/.github/actions/setup-ssh@main
     with:
       hosts: |
-        my-host1.com
-        my-host2.com
+        host1.example.com
+        host2.example.com
       private-key: ${{ secrets.PRIVATE_KEY }}
   - run: |
-      ssh user@host1.com -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
+      ssh user@host1.example.com -i ${{ steps.ssh.outputs.private-key-path }} /bin/bash <<'EOT'
       echo "Hello from host1!"
       EOT
 ```
