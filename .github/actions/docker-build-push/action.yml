@@ -1,0 +1,85 @@
+name: Docker
+inputs:
+  container-registry:
+    required: true
+    type: string
+    description: Name of the container registry to push the image to
+  image-name:
+    required: true
+    type: string
+    description: Name of the image to push (-t)
+  dockerfile-directory:
+    required: false
+    default: '.'
+    type: string
+    description: Location of the dockerfile
+  dockerfile-name:
+    required: false
+    default: 'Dockerfile'
+    type: string
+    description: Name of the Dockerfile that will be built
+  build-args:
+    required: false
+    type: string
+    default: ""
+    description: List of Docker build arguments (--build-arg)
+  target:
+    required: false
+    type: string
+    default: ""
+    description: Build target string (--target)
+  build-secrets:
+    required: false
+    default: ""
+    description: List of Docker build secrets (--secret)
+  push:
+    required: false
+    default: true
+    description: Whether the built image should be pushed (defaults to 'true')
+outputs:
+  image-url:
+    description: Full built image URL <container-registry>/<image-name>
+    value: ${{ steps.image.outputs.path }}
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # Buildx is currently required to use a subdirectory w/ build-push-action
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Log in to container registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ inputs.container-registry }}
+        username: ${{ github.repository_owner }}
+        password: ${{ github.token }}
+
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        images: ${{ inputs.container-registry }}/${{ inputs.image-name }}
+        flavor: |
+          latest=true
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v3
+      with:
+        context: "{{defaultContext}}:${{ inputs.dockerfile-directory }}"
+        build-args: ${{ inputs.build-args }}
+        secrets: ${{ inputs.build-secrets }}
+        file: ${{ inputs.dockerfile-name }}
+        push: ${{ inputs.push }}
+        target: ${{ inputs.target }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Output image path
+      shell: bash
+      id: image
+      run: echo "path=${{ inputs.container-registry }}/${{ inputs.image-name }}" >> $GITHUB_OUTPUT
