@@ -4,8 +4,9 @@ Custom GitHub Actions for use across the ACCESS-NRI.
 
 ## Actions
 
-* `setup-ssh`: Sets up private keys and ~/.ssh/known_hosts: [setup-ssh README.md](.github/actions/setup-ssh/README.md). 
+* `setup-ssh`: Sets up private keys and ~/.ssh/known_hosts: [setup-ssh README.md](.github/actions/setup-ssh/README.md).
 * `docker-build-push`: Builds and pushes a docker image: [docker-build-push README.md](.github/actions/docker-build-push/README.md).
+* `bump-version`: Bumps a version string given a versioning scheme: [bump-version README.md](.github/actions/bump-version/README.md).
 
 ## Workflows
 

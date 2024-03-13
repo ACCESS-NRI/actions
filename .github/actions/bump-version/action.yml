@@ -1,0 +1,149 @@
+name: Bump Version
+author: Tommy Gatti
+description: Action for bumping a version string
+inputs:
+  version:
+    required: true
+    type: string
+    description: The version string that will be bumped
+  versioning-scheme:
+    required: true
+    type: string
+    description: |
+      The type of versioning scheme used. Currently supports 'calver-minor', 'semver-major-minor', where:
+      'calver-minor': 'YYYY.OM.MINOR'.
+      'semver-major-minor': 'MAJOR.MINOR'.
+  bump-type:
+    required: true
+    type: string
+    description: |
+      The type of bump. This changes depending on the `versioning-scheme`.
+      'calver-minor': 'major' or 'minor'.
+      'semver-major-minor': 'major' or 'minor'.
+outputs:
+  before:
+    description: Version before being bumped. Equivalent to the input `version`.
+    value: ${{ steps.results.outputs.before }}
+  after:
+    description: Version after being bumped.
+    value: ${{ steps.results.outputs.after }}
+  type:
+    description: Type of bump. Equivalent to the input `bump-type`.
+    value: ${{ steps.results.outputs.type }}
+runs:
+  using: composite
+  steps:
+    - name: Check Versioning Scheme Validity
+      shell: bash
+      env:
+        VALID_VERSIONING_SCHEMES: calver-minor semver-major-minor
+
+      run: |
+        # check validity of versioning schemes
+        found=false
+        for valid_scheme in ${{ env.VALID_VERSIONING_SCHEMES }}; do
+          if [[ "${{ inputs.versioning-scheme }}" == "${valid_scheme}" ]]; then
+            found=true
+            break
+          fi
+        done
+        if [[ "${found}" == "false" ]]; then
+          echo "::error::${{ inputs.versioning-scheme }} is not supported by this action. Please check the list of allowed 'versioning-scheme's."
+          exit 1
+        fi
+
+    - name: Check Bump Type Validity for ${{ inputs.versioning.scheme }}
+      shell: bash
+      env:
+        VALID_CALVER_MINOR_BUMP_TYPES: major minor
+        VALID_SEMVER_MAJOR_MINOR_BUMP_TYPES: major minor
+      run: |
+        # check validity of bump types for each versioning scheme
+        found=false
+
+        if [[ "${{ inputs.versioning-scheme }}" == "calver-minor" ]]; then
+          for valid_bump in ${{ env.VALID_CALVER_MINOR_BUMP_TYPES }}; do
+            if [[ "${{ inputs.bump-type }}" == "${valid_bump}" ]]; then
+              exit 0
+            fi
+          done
+        elif [[ "${{ inputs.versioning-scheme }}" == "semver-major-minor" ]]; then
+          for valid_bump in ${{ env.VALID_SEMVER_MAJOR_MINOR_BUMP_TYPES }}; do
+            if [[ "${{ inputs.bump-type }}" == "${valid_bump}" ]]; then
+              exit 0
+            fi
+          done
+        fi
+
+        echo "::error::Bump type ${{ inputs.bump-type }} is not supported in ${{ inputs.versioning-scheme }}. Please check the list of allowed 'bump-type's."
+        exit 1
+
+    - name: Bump - calver-minor
+      shell: bash
+      if: inputs.versioning-scheme == 'calver-minor'
+      id: calver-minor
+      # Regarding the regex in the script: `([0-9]{4}\.(0[1-9]|1[1-2]))\.([0-9]+)` is broken down into:
+      # `([0-9]{4}\.(0[1-9]|1[1-2]))`: Major version as a date in the form YYYY.0M (eg. `2024.03`)
+      # `\.`: Version separator (eg. `.`)
+      # `([0-9]+)`: Minor version (eg. `1`)
+      # which would give `2024.03.1`
+      run: |
+        regex="([0-9]{4}\.(0[1-9]|1[1-2]))\.([0-9]+)"
+        if [[ "${{ inputs.version }}" =~ "${regex}" ]]; then
+          major_version="${BASH_REMATCH[1]}"
+          minor_version="${BASH_REMATCH[3]}"
+        else
+          echo "::error::${{ inputs.version }} does not conform to ${{ inputs.versioning-scheme }}!"
+          exit 1
+        fi
+
+        if [[ "${{ inputs.bump-type }}" == "minor" ]]; then
+          minor_version=$((minor_version + 1))
+        elif [[ "${{ inputs.bump-type }}" == "major" ]]; then
+          major_version=$(date +%Y.%m)
+          minor_version=0
+        fi
+        new_version="${major_version}.${minor_version}"
+        echo "bump=$new_version" >> $GITHUB_OUTPUT
+
+    - name: Bump - semver-major-minor
+      shell: bash
+      if: inputs.versioning-scheme == 'semver-major-minor'
+      id: semver-major-minor
+        # Regarding the regex in the script: `([0-9]+)\.([0-9]+)` is broken down into:
+        # `([0-9]+)`: Major version (eg. `12`)
+        # `\.`: Version separator (eg. `.`)
+        # `([0-9]+)`: Minor version (eg. `1`)
+        # which would give `12.1`
+      run: |
+        regex="([0-9]+)\.([0-9]+)"
+        if [[ "${{ inputs.version }}" =~ $regex ]]; then
+          major_version="${BASH_REMATCH[1]}"
+          minor_version="${BASH_REMATCH[2]}"
+        else
+          echo "::error::${{ inputs.version }} does not conform to ${{ inputs.versioning.scheme }}!"
+          exit 1
+        fi
+
+        if [[ "${{ inputs.bump-type }}" == "minor" ]]; then
+          minor_version=$((minor_version + 1))
+        elif [[ "${{ inputs.bump-type }}" == "major" ]]; then
+          major_version=$((major_version + 1))
+          minor_version=0
+        fi
+        new_version="${major_version}.${minor_version}"
+        echo "bump=$new_version" >> $GITHUB_OUTPUT
+
+    - name: Consolidate Results
+      shell: bash
+      id: results
+      # Each of the Bump steps with ids above are mutually exclusive (check their conditionals).
+      # But to have the result of whichever one that ran as an output of the action,
+      # we have to store that result in a step that always runs, so can be a static
+      # `value` of the output. This is that step.
+      run: |
+        echo "before=${{ inputs.version }}" >> $GITHUB_OUTPUT
+        echo "type=${{ inputs.bump-type }}" >> $GITHUB_OUTPUT
+
+        bump=$(jq --compact-output --raw-output '.[].outputs.bump | select( . != null)' <<< '${{ toJson(steps) }}')
+        echo "after=$bump" >> $GITHUB_OUTPUT
