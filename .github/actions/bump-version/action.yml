@@ -33,10 +33,17 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Setup Action-scoped ENVs
+      shell: bash
+      # Since there is no top-level 'env:' directive in custom actions like
+      # there is in workflows, we have to be a bit hacky...
+      run: |
+        echo "VALID_VERSIONING_SCHEMES=calver-minor semver-major-minor" >> $GITHUB_ENV
+        echo "VALID_CALVER_MINOR_BUMP_TYPES=major minor" >> $GITHUB_ENV
+        echo "VALID_SEMVER_MAJOR_MINOR_BUMP_TYPES=major minor" >> $GITHUB_ENV
+
     - name: Check Versioning Scheme Validity
       shell: bash
-      env:
-        VALID_VERSIONING_SCHEMES: calver-minor semver-major-minor
 
       run: |
         # check validity of versioning schemes
@@ -54,9 +61,6 @@ runs:
 
     - name: Check Bump Type Validity for ${{ inputs.versioning.scheme }}
       shell: bash
-      env:
-        VALID_CALVER_MINOR_BUMP_TYPES: major minor
-        VALID_SEMVER_MAJOR_MINOR_BUMP_TYPES: major minor
       run: |
         # check validity of bump types for each versioning scheme
         found=false
