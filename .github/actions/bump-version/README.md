@@ -12,12 +12,27 @@ This action bumps a version string, given a versioning scheme. The bump can be c
 
 ### Versioning Schemes
 
-We currently support these versioning schemes:
+We currently support these versioning schemes. See the expanded section on Bumps after this table for more information.
 
-| Scheme | Example | Available Bumps | Example Bumps | Description |
-| ------ | ------- | --------------- | ------------- | ----------- |
-| `calver-minor` | `YYYY.0M.MINOR` | `major` bumps to `CURRENT_YEAR.CURRENT_MONTH.0`, `minor` bumps to `YYYY.0M.(MINOR+1)` | `major` (`2023.02.3` -> `2024.01.0`, AKA updated to current year and month). `minor` (`2023.02.3` -> `2023.02.4`) | A variation of [Calender Versioning](https://calver.org/) where the Day field is instead a `MINOR` version number |
-| `semver-major-minor` | `MAJOR.MINOR` | `major` bumps to `(MAJOR+1).0`, `minor` bumps to `MAJOR.(MINOR+1)` | `major` (`12.2` -> `13.0`), `minor` (`12.2` -> `12.3`) | A variation of [Semantic Versioning](https://semver.org/) which only deals with `MAJOR` and `MINOR` versions |
+| Scheme | Example | Available Bumps | Description |
+| ------ | ------- | --------------- | ----------- |
+| `calver-minor` | `YYYY.0M.MINOR` | `major`, `minor`, `current` | A variation of [Calender Versioning](https://calver.org/) where the Day field is instead a `MINOR` version number |
+| `semver-major-minor` | `MAJOR.MINOR` | `major`, `minor` | A variation of [Semantic Versioning](https://semver.org/) which only deals with `MAJOR` and `MINOR` versions |
+
+#### `calver-minor` Bumps
+
+| Bump | Effect | Example |
+| ---- | ------ | ------- |
+| `major` | `YYYY.0M.MINOR` -> `YYYY.(0M+1).0` | `2024.02.3` -> `2024.03.0`, `2024.12.0` -> `2025.01.0` |
+| `minor` | `YYYY.0M.MINOR` -> `YYYY.0M.(MINOR+1)` | `2024.01.9` -> `2024.01.10` |
+| `current` | `YYYY.0M.MINOR` -> `(CURRENT_YEAR).(CURRENT_MONTH).0` | `2020.04.1` -> `2024.01.0` (the current date) |
+
+#### `semver-major-minor` Bumps
+
+| Bump | Effect | Example |
+| ---- | ------ | ------- |
+| `major` | `MAJOR.MINOR` -> `(MAJOR+1).0` | `12.3` -> `13.0` |
+| `minor` | `MAJOR.MINOR` -> `MAJOR.(MINOR+1)` | `12.3` -> `12.4` |
 
 ## Outputs
 
