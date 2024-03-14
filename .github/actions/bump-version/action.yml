@@ -44,8 +44,8 @@ runs:
 
     - name: Check Versioning Scheme Validity
       shell: bash
+      # check validity of versioning schemes
       run: |
-        # check validity of versioning schemes
         found=false
         for valid_scheme in ${{ env.VALID_VERSIONING_SCHEMES }}; do
           if [[ "${{ inputs.versioning-scheme }}" == "${valid_scheme}" ]]; then
@@ -60,23 +60,20 @@ runs:
 
     - name: Check Bump Type Validity for ${{ inputs.versioning.scheme }}
       shell: bash
+      # check validity of bump types for each versioning scheme
       run: |
-        # check validity of bump types for each versioning scheme
-        found=false
+        # Replace Github-Actions-style variable name with bash-env-style name
+        env_style_scheme=$(echo "${{ inputs.versioning-scheme }}" | tr '-' '_' | tr '[:lower:]' '[:upper:]')
 
-        if [[ "${{ inputs.versioning-scheme }}" == "calver-minor" ]]; then
-          for valid_bump in ${{ env.VALID_CALVER_MINOR_BUMP_TYPES }}; do
-            if [[ "${{ inputs.bump-type }}" == "${valid_bump}" ]]; then
-              exit 0
-            fi
-          done
-        elif [[ "${{ inputs.versioning-scheme }}" == "semver-major-minor" ]]; then
-          for valid_bump in ${{ env.VALID_SEMVER_MAJOR_MINOR_BUMP_TYPES }}; do
-            if [[ "${{ inputs.bump-type }}" == "${valid_bump}" ]]; then
-              exit 0
-            fi
-          done
-        fi
+        # Create the appropriate environment variable name (see the first step in this action)
+        valid_bumps_env_var=VALID_${env_style_scheme}_BUMP_TYPES
+
+        # Check valid bumps associated with the environment variable
+        for valid_bump in $(printenv ${valid_bumps_env_var}); do
+          if [[ "${{ inputs.bump-type }}" == "${valid_bump}" ]]; then
+            exit 0
+          fi
+        done
 
         echo "::error::Bump type ${{ inputs.bump-type }} is not supported in ${{ inputs.versioning-scheme }}. Please check the list of allowed 'bump-type's."
         exit 1
