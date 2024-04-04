@@ -14,11 +14,15 @@ inputs:
     type: number
     required: false
     description: The COMMENT_ID of the issue/pull request comment. Defaults to the github.event.comment.id of the caller
+  token:
+    type: string
+    required: true
+    description: GitHub token/PAT that has the appropriate permissions to react to the comment
 runs:
   using: "composite"
   steps:
     - env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ inputs.token }}
       shell: bash
       run: |
         gh api \

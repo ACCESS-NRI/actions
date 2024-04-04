@@ -12,6 +12,7 @@ This action adds a reaction to a given comment, or alternatively the comment ref
 | `reaction` | `string` | The reaction to the given comment in GitHubs Emoji syntax | `true` | `"+1"` | `"rocket"` |
 | `repository` | `string` | The GitHub `OWNER/REPO` combination | `false` | `${{ github.repository }}` | `"ACCESS-NRI/actions"` |
 | `comment-id` | `number` | The `COMMENT_ID` of the issue/pull request comment | `false` | `${{ github.event.comment.id }}` | `1234567` |
+| `token` | `string` | Appropriate Github Token/PAT to react to the given comment | `true` | N/A | `${{ secrets.GITHUB_TOKEN }}` |
 
 ## Example
 
@@ -20,4 +21,5 @@ This action adds a reaction to a given comment, or alternatively the comment ref
 - uses: access-nri/actions/.github/actions/react-to-comment@main
   with:
     reaction: rocket
+    token: ${{ secrets.GITHUB_TOKEN }}
 ```
