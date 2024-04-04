@@ -14,11 +14,12 @@ jobs:
     outputs:
       json-to-validate: ${{ steps.get-json.outputs.json }}
     steps:
-      - uses: actions/checkout@v3
-      - name: Get all schema 
+      - uses: actions/checkout@v4
+
+      - name: Get all schema
         id: get-json
         # this command finds all the filenames with the '.schema.json' extension, removes that extension, then turns them into a json array
-        # an example of this transformation would be: 'compilers.schema.json models.schema.json' -> 'compilers models' -> '["compilers","models"]' 
+        # an example of this transformation would be: 'compilers.schema.json models.schema.json' -> 'compilers models' -> '["compilers","models"]'
         run: echo "json=$(find ${{ inputs.src }} -type f -name '*.schema.json' | xargs basename --suffix '.schema.json' | jq --raw-input --null-input --compact-output '[inputs]')" >> $GITHUB_OUTPUT
 
   validate-json:
@@ -28,13 +29,14 @@ jobs:
       - setup-validate-json
     strategy:
       fail-fast: false
-      matrix: 
+      matrix:
         file: ${{ fromJson(needs.setup-validate-json.outputs.json-to-validate) }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
       - name: Validate files
         run: jsonschema --instance ${{ inputs.src }}/${{ matrix.file }}.json ${{ inputs.src }}/${{ matrix.file }}.schema.json
-
