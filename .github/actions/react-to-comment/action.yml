@@ -1,0 +1,44 @@
+name: React to Comment
+description: Action that reacts to a given comment, or alternatively the comment referred to by the on.issue_comment trigger.
+inputs:
+  reaction:
+    type: string
+    required: true
+    default: '+1'
+    description: The reaction to the given comment in GitHubs Emoji syntax. Currently supports +1, -1, laugh, confused, heart, hooray, rocket and eyes.
+  repository:
+    type: string
+    required: false
+    description: The GitHub OWNER/REPO combination. Defaults to github.repository of the caller
+  comment-id:
+    type: number
+    required: false
+    description: The COMMENT_ID of the issue/pull request comment. Defaults to the github.event.comment.id of the caller
+  token:
+    type: string
+    required: true
+    description: GitHub token/PAT that has the appropriate permissions to react to the comment
+runs:
+  using: "composite"
+  steps:
+    - env:
+        GH_TOKEN: ${{ inputs.token }}
+      shell: bash
+      run: |
+        REPOSITORY="${{ inputs.repository }}"
+        ID="${{ inputs.comment-id }}"
+
+        if [[ -z "$REPOSITORY" ]]; then
+          REPOSITORY="${{ github.repository }}"
+        fi
+
+        if [[ -z "$ID" ]]; then
+          ID="${{ github.event.comment.id }}"
+        fi
+
+        gh api \
+          --method POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          /repos/${REPOSITORY}/issues/comments/${ID}/reactions \
+          -f content='${{ inputs.reaction }}'
