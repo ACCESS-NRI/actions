@@ -1,0 +1,67 @@
+name: PR Comment
+description: Action that comments on a given PR
+inputs:
+  comment:
+    type: string
+    required: true
+    description: The body of the comment, in GitHub Markdown format
+  pr:
+    type: number
+    required: false
+    description: The Pull Request Number that will be commented on. Defaults to the PR associated with the callers event
+  edit-last:
+    type: boolean
+    required: false
+    default: false
+    description: Edit the last comment by 'github-actions[bot]' instead of creating a new one
+  token:
+    type: string
+    required: false
+    description: A GitHub Token/PAT that allows commenting on the given PR. Defaults to github.token
+outputs:
+  comment-link:
+    description: A link to the added comment
+    value: ${{ steps.comment.outputs.link }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set Non-Required Inputs
+      shell: bash
+      run: |
+        # Set PR
+        if [[ -z "${{ inputs.pr }}" ]]; then
+          if [[ -n "${{ github.event.issue }}" ]]; then
+            echo "PR=${{ github.event.issue.number }}" >> $GITHUB_ENV
+          elif [[ -n "${{ github.event.pull_request }}" ]]; then
+            echo "PR=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+          else
+            echo "::error::Couldn't infer PR number from event payload, please enter as an input"
+            exit 1
+          fi
+        else
+          echo "PR=${{ inputs.pr }}" >> $GITHUB_ENV
+        fi
+
+        # Set GH_TOKEN
+        if [[ -z "${{ inputs.token }}" ]]; then
+          echo "GH_TOKEN=${{ github.token }}" >> $GITHUB_ENV
+        else
+          echo "GH_TOKEN=${{ inputs.token }}" >> $GITHUB_ENV
+        fi
+
+    - name: Comment on PR ${{ inputs.pr }}
+      shell: bash
+      id: comment
+      env:
+        BODY: |
+          ${{ inputs.comment }}
+      run: |
+        if [[ ${{ inputs.edit-last }} == "true" ]]; then
+          echo "link=$(gh pr comment ${{ env.PR }} --edit-last --body '${{ env.BODY }}')" >> $GITHUB_OUTPUT
+        else
+          echo "link=$(gh pr comment ${{ env.PR }} --body '${{ env.BODY }}')" >> $GITHUB_OUTPUT
+        fi
