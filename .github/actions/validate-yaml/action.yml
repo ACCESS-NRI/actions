@@ -1,0 +1,40 @@
+name: Validate yaml
+description: Action that validates a given `.yaml` file against a given `.json` schema
+inputs:
+  schema-location:
+    type: string
+    required: true
+    description: Path on the runner to the schema to use for validation
+  yaml-location:
+    type: string
+    required: true
+    description: Path on the runner to the .yaml file to be validated
+  strict-schema-validation:
+    type: string
+    required: false
+    default: false
+    description: |
+      Whether to validate the schema itself along with the yaml.
+      Options are 'true', 'false' and 'log'
+  schema-spec:
+    type: string
+    required: false
+    default: draft7
+    description: JSON schema specification to use, to be passed to `ajv`
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - shell: bash
+      run: npm install -g ajv-cli@5.0.0
+
+    - shell: bash
+      run: |
+        ajv \
+          --spec=${{ inputs.schema-spec }} \
+          --strict=${{ inputs.strict-schema-validation }} \
+          -s ${{ inputs.schema-location }} \
+          -d ${{ inputs.yaml-location }}
