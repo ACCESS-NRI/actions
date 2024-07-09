@@ -56,6 +56,7 @@ runs:
         registry: ${{ inputs.container-registry }}
         username: ${{ github.repository_owner }}
         password: ${{ github.token }}
+        logout: false
 
     - name: Extract metadata (tags, labels) for Docker
       id: meta
@@ -74,8 +75,8 @@ runs:
         file: ${{ inputs.dockerfile-name }}
         push: ${{ inputs.push }}
         target: ${{ inputs.target }}
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+        tags: ${{ inputs.image-name }}:latest
+        labels: ${{ steps.meta.ouputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
