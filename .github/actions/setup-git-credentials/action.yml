@@ -1,0 +1,42 @@
+name: Setup Git Credentials
+description: Action that sets up various common git config and verification keys in a job
+inputs:
+  user-name:
+    type: string
+    required: true
+    description: Git user.name config value
+  user-email:
+    type: string
+    required: true
+    description: Git user.email config value
+  global-config:
+    type: boolean
+    required: false
+    default: true
+    description: |
+      Write to global ~/.gitconfig rather than .git/config for this job
+      Using 'false' requires a git repository already checked out
+  gpg-signing-key:
+    type: string
+    required: false
+    description: GPG signing key for verified commits
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Global ENVs
+      shell: bash
+      run: |
+        echo "SETUP_GIT_GLOBAL_FLAG=${{ inputs.global-config && '--global' || '' }}" >> $GITHUB_ENV
+    - name: Setup User Credentials
+      shell: bash
+      run: |
+        # Setup user.name and user.email
+        git config ${{ env.SETUP_GIT_GLOBAL_FLAG }} user.name "${{ inputs.user-name }}"
+        git config ${{ env.SETUP_GIT_GLOBAL_FLAG }} user.email "${{ inputs.user-email }}"
+
+    - name: Setup Commit Signing Key
+      shell: bash
+      run: |
+        # Setup Commit Signing Key
+        git config ${{ env.SETUP_GIT_GLOBAL_FLAG }} user.signingkey ${{ inputs.gpg-signing-key }}
+        git config ${{ env.SETUP_GIT_GLOBAL_FLAG }} commit.gpgsign true
