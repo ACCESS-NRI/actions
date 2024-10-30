@@ -1,0 +1,136 @@
+name: Comment
+description: Action that comments on a given PR/Issue number
+inputs:
+  message:
+    type: string
+    required: true
+    description: The comment body. Supports Markdown format.
+  number:
+    type: number
+    required: false
+    description: |
+      The Pull Request / Issue Number that will be commented on. 
+      If the action is called within a 'pull_request' or 'issue' event, it defaults to the PR/Issue associated with the event. 
+      If the action is NOT called within a 'pull_request' or 'issue' event and 'number' is not provided, an error will be thrown.
+  label:
+    type: string
+    required: false
+    default: 'default-label'
+    description: |
+      A label to identify the comment (useful for editing or deleting a specific comment).
+      If 'label' is provided together with 'comment-id', 'label' will be ignored.
+  comment-id:
+    type: number
+    required: false
+    description: |
+      The ID of the comment to edit or delete. If not provided, a new comment is created.
+      If 'comment-id' is provided together with 'label', 'label' will be ignored.
+  repo:
+    type: string
+    required: false
+    description: | 
+      The repository to comment on, in the format: <REPOSITORY_OWNER>/<REPOSITORY_NAME>. 
+      It defaults to the repository where the action is running.
+  delete:
+    type: boolean
+    required: false
+    default: false
+    description: If set to true, it deletes the comment.
+  token:
+    type: string
+    required: false
+    description: A GitHub Token/PAT that allows commenting on the given PR/Issue. Defaults to github.token.
+outputs:
+  comment-url:
+    description: |
+      The URL of the added/edited comment. 
+      Returns nothing if 'delete' is set to true.
+    value: ${{ steps.comment.outputs.comment-url }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set Non-Required Inputs
+      shell: bash +H {0}
+      # We use the +H option to prevent history expansion, so the '!' character can be printed out without 
+      # problems.
+      run: |
+        # Set NUMBER
+        if [[ ${{ inputs.number }} == 0 ]]; then # If number is not provided (number type defaults to 0 -- https://docs.github.com/en/enterprise-cloud@latest/actions/writing-workflows/workflow-syntax-for-github-actions#onworkflow_callinputs)
+          if [[ -n "${{ github.event.issue }}" ]]; then
+            echo "NUMBER=${{ github.event.issue.number }}" >> $GITHUB_ENV
+          elif [[ -n "${{ github.event.pull_request }}" ]]; then
+            echo "NUMBER=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+          else
+            echo "::error::Couldn't infer PR/Issue number from the event payload, please enter PR/Issue number as an input."
+            exit 1
+          fi
+        else
+          echo "NUMBER=${{ inputs.number }}" >> $GITHUB_ENV
+        fi
+
+        # Set REPO
+        repo_name=${{ inputs.repo }}
+        echo "REPO=${repo_name:-${{github.repository}}}" >> $GITHUB_ENV
+
+        # Set LABEL_STRING
+        label=${{ inputs.label }}
+        echo "LABEL_STRING=<!-- pr-comment-action @@@${label}@@@ -->" >> $GITHUB_ENV
+        
+        # Set GH_TOKEN
+        token="${{ inputs.token }}"
+        echo "GH_TOKEN=${token:-${{github.token}}}" >> $GITHUB_ENV
+
+    - name: Get comment id
+      shell: bash
+      run: |
+        if [[ -n "${{ inputs.comment-id }}" ]]; then
+          echo "COMMENT_ID=${{ inputs.comment-id }}" >> $GITHUB_ENV
+        else
+          # if comment-id is not provided, get the comment id from the label (if found)
+          id=$(gh api \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          repos/$REPO/issues/$NUMBER/comments \
+          --jq ".[] | select(.body | contains(\"${LABEL_STRING}\")) | .id")
+          echo "COMMENT_ID=$id" >> $GITHUB_ENV
+        fi
+
+    - name: Delete comment
+      if: ${{ inputs.delete == 'true' }}
+      shell: bash +H {0}
+      run: |
+        if [[ -z "$COMMENT_ID" ]]; then
+          echo "::error::Found no comment to delete. Please check that the provided label exists."
+          exit 1
+        fi
+        output=$(gh api --method DELETE \
+        -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
+        repos/$REPO/issues/comments/$COMMENT_ID)
+    
+    - name: Add comment
+      if: ${{ inputs.delete == 'false' }}
+      id: comment
+      shell: bash -e +H {0}
+      run: |
+        if [[ -n "$COMMENT_ID" ]]; then
+          # Edit comment
+          id_string="/${COMMENT_ID}"
+          method=PATCH
+          number_string=""
+          msg="Edited comment $COMMENT_ID."
+        else
+          # Add comment
+          id_string=""
+          method=POST
+          number_string="/${NUMBER}"
+          msg="Added comment."
+        fi
+        output=$(gh api --method $method \
+        -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
+        repos/$REPO/issues${number_string}/comments${id_string} -f body='${{inputs.message}}'"$LABEL_STRING")
+        echo "$msg"
+        echo "comment-url=$(jq '.html_url' <<< $output)" >> $GITHUB_OUTPUT
