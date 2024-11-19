@@ -143,3 +143,59 @@ In the example above, the minimum token's permissions for the commented repo nee
     <li><code>pull-requests: write</code></li>
 </ul>
 </details>
+
+<details>
+<summary><b>Add a comment to PR #115 of the repo ACCESS-NRI/actions using its url</b></summary>
+
+```yaml
+# ...
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: access-nri/actions/.github/actions/pr-comment@main
+      with:
+        url: https://github.com/ACCESS-NRI/actions/pull/115
+        token: ${{secrets.PR_WRITE_TOKEN}}
+        message: |
+          Wow, a comment on PR 115 of the ACCESS-NRI/actions repo!
+          Using its URL!!!
+```
+<b>IMPORTANT</b><br>
+The default `github.token` does not have access to other repos.<br>
+To add/edit/delete a comment in a different repo, an external token needs to be provided. This could be, for example a [PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).<br>
+In the example above, the minimum token's permissions for the commented repo need to be:
+<ul>
+    <li><code>metadata: read</code></li>
+    <li><code>contents: read</code></li>
+    <li><code>pull-requests: write</code></li>
+</ul>
+</details>
+
+<details>
+<summary><b>Edit a specific PR/issue comment using its url</b></summary>
+
+```yaml
+# ...
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: access-nri/actions/.github/actions/pr-comment@main
+      with:
+        url: https://github.com/ACCESS-NRI/actions/pull/115#issuecomment-2466989248
+        token: ${{secrets.PR_WRITE_TOKEN}}
+        message: |
+          Wow, I'm editing comment 2466989248 on PR 115 of the ACCESS-NRI/actions repo!
+          I'm using its URL!!!
+```
+<b>IMPORTANT</b><br>
+The default `github.token` does not have access to other repos.<br>
+To add/edit/delete a comment in a different repo, an external token needs to be provided. This could be, for example a [PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).<br>
+In the example above, the minimum token's permissions for the commented repo need to be:
+<ul>
+    <li><code>metadata: read</code></li>
+    <li><code>contents: read</code></li>
+    <li><code>pull-requests: write</code></li>
+</ul>
+</details>
