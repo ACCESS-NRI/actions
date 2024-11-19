@@ -9,28 +9,44 @@ inputs:
     type: number
     required: false
     description: |
-      The Pull Request / Issue Number that will be commented on. 
-      If the action is called within a 'pull_request' or 'issue' event, it defaults to the PR/Issue associated with the event. 
-      If the action is NOT called within a 'pull_request' or 'issue' event and 'number' is not provided, an error will be thrown.
+      The Pull Request / Issue Number that will be commented on.
+      If `number` is not provided, the following rules will apply:
+      - if `url` is provided, `number` will be inferred from the url;
+      - if `url` is not provided and the action is called within a `pull_request` or 
+        `issue` event, `number` will default to the PR/Issue associated with the event;
+      - in any other case, an error will be thrown.
+      Cannot be used together with `url`.
   label:
     type: string
     required: false
     default: 'default-label'
     description: |
       A label to identify the comment (useful for editing or deleting a specific comment).
-      If 'label' is provided together with 'comment-id', 'label' will be ignored.
+      If `label` is provided together with `comment-id` or a `url` containing the COMMENT_ID portion, 
+      `label` will be ignored.
   comment-id:
     type: number
     required: false
     description: |
-      The ID of the comment to edit or delete. If not provided, a new comment is created.
-      If 'comment-id' is provided together with 'label', 'label' will be ignored.
+      The ID of the comment to edit or delete. If not provided, a new comment is created. 
+      If `comment-id` is provided together with `label`, `label` will be ignored. 
+      Cannot be used together with a `url` containing the COMMENT_ID portion.
   repo:
     type: string
     required: false
-    description: | 
-      The repository to comment on, in the format: <REPOSITORY_OWNER>/<REPOSITORY_NAME>. 
+    description: |
+      The repository to comment on, in the format `<REPOSITORY_OWNER>/<REPOSITORY_NAME>`.
       It defaults to the repository where the action is running.
+      Cannot be used together with `url`. 
+  url:
+    type: string
+    required: false
+    description: |
+      The comment url in the format `https://github.com/<REPOSITORY_OWNER>/<REPOSITORY_NAME>/issues/<number>#issuecomment-<COMMENT_ID>`,
+      or the PR/issue url in the form `https://github.com/<REPOSITORY_OWNER>/<REPOSITORY_NAME>/issues/<number>`. 
+      If a comment `url` (containing the COMMENT_ID portion) is provided together with `label`, `label` will be ignored. 
+      A comment `url` (containing the COMMENT_ID portion) cannot be used together with `comment-id`. 
+      Cannot be used together with `number` or `repo`.
   delete:
     type: boolean
     required: false
