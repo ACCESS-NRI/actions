@@ -9,28 +9,44 @@ inputs:
     type: number
     required: false
     description: |
-      The Pull Request / Issue Number that will be commented on. 
-      If the action is called within a 'pull_request' or 'issue' event, it defaults to the PR/Issue associated with the event. 
-      If the action is NOT called within a 'pull_request' or 'issue' event and 'number' is not provided, an error will be thrown.
+      The Pull Request / Issue Number that will be commented on.
+      If `number` is not provided, the following rules will apply:
+      - if `url` is provided, `number` will be inferred from the url;
+      - if `url` is not provided and the action is called within a `pull_request` or 
+        `issue` event, `number` will default to the PR/Issue associated with the event;
+      - in any other case, an error will be thrown.
+      Cannot be used together with `url`.
   label:
     type: string
     required: false
     default: 'default-label'
     description: |
       A label to identify the comment (useful for editing or deleting a specific comment).
-      If 'label' is provided together with 'comment-id', 'label' will be ignored.
+      If `label` is provided together with `comment-id` or a `url` containing the COMMENT_ID portion, 
+      `label` will be ignored.
   comment-id:
     type: number
     required: false
     description: |
-      The ID of the comment to edit or delete. If not provided, a new comment is created.
-      If 'comment-id' is provided together with 'label', 'label' will be ignored.
+      The ID of the comment to edit or delete. If not provided, a new comment is created. 
+      If `comment-id` is provided together with `label`, `label` will be ignored. 
+      Cannot be used together with a `url` containing the COMMENT_ID portion.
   repo:
     type: string
     required: false
-    description: | 
-      The repository to comment on, in the format: <REPOSITORY_OWNER>/<REPOSITORY_NAME>. 
+    description: |
+      The repository to comment on, in the format `<REPOSITORY_OWNER>/<REPOSITORY_NAME>`.
       It defaults to the repository where the action is running.
+      Cannot be used together with `url`. 
+  url:
+    type: string
+    required: false
+    description: |
+      The comment url in the format `https://github.com/<REPOSITORY_OWNER>/<REPOSITORY_NAME>/issues/<number>#issuecomment-<COMMENT_ID>`,
+      or the PR/issue url in the form `https://github.com/<REPOSITORY_OWNER>/<REPOSITORY_NAME>/issues/<number>`. 
+      If a comment `url` (containing the COMMENT_ID portion) is provided together with `label`, `label` will be ignored. 
+      A comment `url` (containing the COMMENT_ID portion) cannot be used together with `comment-id`. 
+      Cannot be used together with `number` or `repo`.
   delete:
     type: boolean
     required: false
@@ -58,11 +74,42 @@ runs:
       # We use the +H option to prevent history expansion, so the '!' character can be printed out without 
       # problems.
       run: |
+        # Parse URL
+        if [[ -n "${{ inputs.url }}" ]]; then
+          url= xargs <<< "${{ inputs.url }}" # Remove leading/trailing whitespaces
+          # Regex for the url in an expanded form
+          regex='^'                             # Beginning of string anchor
+          regex+='https://github\.com/'         # Github URL
+          regex+='([^/ ]+)'                     # Match any non-space/non-slash characters - Capture group 1 (the OWNER)
+          regex+='/'                            # Match a forward slash
+          regex+='([^/ ]+)'                     # Match any non-space/non-slash characters - Capture group 2 (the REPO)
+          regex+='/'                            # Match a forward slash
+          regex+='(issues|pull)/'               # Match "issues/" or "pull/" - Capture group 3 (not used)
+          regex+='([0-9]+)'                     # Match one or more digits - Capture group 4 (the NUMBER)
+          regex+='(#issuecomment-([0-9]+))?'    # Optionally match "#issuecomment-" and one or more digits - Capture groups 5 (not used) and 6 (the COMMENT-ID)
+          regex+='$'                            # End of string anchor
+          if [[ "$1" =~ $regex ]]; then
+            OWNER=${BASH_REMATCH[1]}
+            REPOSITORY=${BASH_REMATCH[2]}
+            NUMBER=${BASH_REMATCH[4]}
+            COMMENT_ID=${BASH_REMATCH[6]}
+          else
+            echo "::error::Invalid URL \"${{ inputs.url }}\". Please provide a valid URL format."
+            exit 1
+          fi
+        fi
+
         # Set NUMBER
+        if [[ ${{ inputs.number }} != 0 && -n "${{ inputs.url }}" ]]; then # If both number and url are provided
+          echo "::error::Cannot use 'number' and 'url' together. Please provide only one of them."
+          exit 1
+        fi
         if [[ ${{ inputs.number }} == 0 ]]; then # If number is not provided (number type defaults to 0 -- https://docs.github.com/en/enterprise-cloud@latest/actions/writing-workflows/workflow-syntax-for-github-actions#onworkflow_callinputs)
-          if [[ -n "${{ github.event.issue }}" ]]; then
+          if [[ -n "$NUMBER" ]]; then # If url is provided
+            echo "NUMBER=$NUMBER" >> $GITHUB_ENV
+          elif [[ -n "${{ github.event.issue }}" ]]; then # If in an issue event
             echo "NUMBER=${{ github.event.issue.number }}" >> $GITHUB_ENV
-          elif [[ -n "${{ github.event.pull_request }}" ]]; then
+          elif [[ -n "${{ github.event.pull_request }}" ]]; then # If in a pull_request event
             echo "NUMBER=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
           else
             echo "::error::Couldn't infer PR/Issue number from the event payload, please enter PR/Issue number as an input."
@@ -73,8 +120,15 @@ runs:
         fi
 
         # Set REPO
-        repo_name=${{ inputs.repo }}
-        echo "REPO=${repo_name:-${{github.repository}}}" >> $GITHUB_ENV
+        if [[ -n "${{ inputs.repo }}" && -n "${{ inputs.url }}" ]]; then # If both repo and url are provided
+            echo "::error::Cannot use 'repo' and 'url' together. Please provide only one of them."
+            exit 1
+        fi
+        REPO_INPUT=${{ inputs.repo }}
+        # If REPOSITORY is set (url is provided), set REPO_URL to $REPOSITORY/$OWNER
+        REPO_URL="${REPOSITORY:+$REPOSITORY/$OWNER}"
+        # If REPO_INPUT is set, use it. Otherwise, use REPO_URL. If REPO_URL is not set, use the default github.repository.
+        echo "REPO=${REPO_INPUT:-${REPO_URL:-${{github.repository}}}}" >> $GITHUB_ENV 
 
         # Set LABEL_STRING
         label=${{ inputs.label }}
@@ -88,7 +142,13 @@ runs:
       shell: bash
       run: |
         if [[ -n "${{ inputs.comment-id }}" ]]; then
+          if [[ -n "$COMMENT_ID" ]]; then # If both comment-id and url (with COMMENT_ID portion) are provided
+            echo "::error::Cannot use 'comment-id' and 'url' (containing the COMMENT_ID portion) together. Please provide only one of them."
+            exit 1
+          fi
           echo "COMMENT_ID=${{ inputs.comment-id }}" >> $GITHUB_ENV
+        elif [[ -n "$COMMENT_ID" ]]; then # If url is provided
+          echo "COMMENT_ID=$COMMENT_ID" >> $GITHUB_ENV
         else
           # if comment-id is not provided, get the comment id from the label (if found)
           id=$(gh api \
