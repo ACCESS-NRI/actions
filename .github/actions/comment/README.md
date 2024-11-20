@@ -43,7 +43,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-    - uses: access-nri/actions/.github/actions/pr-comment@main
+    - uses: access-nri/actions/.github/actions/comment@main
       with:
         message: |
           Wow, a comment on PR `${{ github.event.pull_request.number }}`!
@@ -62,7 +62,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-    - uses: access-nri/actions/.github/actions/pr-comment@main
+    - uses: access-nri/actions/.github/actions/comment@main
       with:
         number: 34
         message: |
@@ -82,7 +82,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-    - uses: access-nri/actions/.github/actions/pr-comment@main
+    - uses: access-nri/actions/.github/actions/comment@main
       with:
         number: 34
         label: my-label
@@ -107,7 +107,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-    - uses: access-nri/actions/.github/actions/pr-comment@main
+    - uses: access-nri/actions/.github/actions/comment@main
       with:
         number: 34
         label: my-label
@@ -125,7 +125,7 @@ jobs:
   comment:
     runs-on: ubuntu-latest
     steps:
-    - uses: access-nri/actions/.github/actions/pr-comment@main
+    - uses: access-nri/actions/.github/actions/comment@main
       with:
         number: 115
         repo: ACCESS-NRI/actions
@@ -153,7 +153,7 @@ jobs:
   comment:
     runs-on: ubuntu-latest
     steps:
-    - uses: access-nri/actions/.github/actions/pr-comment@main
+    - uses: access-nri/actions/.github/actions/comment@main
       with:
         url: https://github.com/ACCESS-NRI/actions/pull/115
         token: ${{secrets.PR_WRITE_TOKEN}}
@@ -181,7 +181,7 @@ jobs:
   comment:
     runs-on: ubuntu-latest
     steps:
-    - uses: access-nri/actions/.github/actions/pr-comment@main
+    - uses: access-nri/actions/.github/actions/comment@main
       with:
         url: https://github.com/ACCESS-NRI/actions/pull/115#issuecomment-2466989248
         token: ${{secrets.PR_WRITE_TOKEN}}

@@ -91,7 +91,7 @@ runs:
           if [[ "$1" =~ $regex ]]; then
             OWNER=${BASH_REMATCH[1]}
             REPOSITORY=${BASH_REMATCH[2]}
-            NUM=${BASH_REMATCH[4]}
+            NUMBER=${BASH_REMATCH[4]}
             COMMENT_ID=${BASH_REMATCH[6]}
           else
             echo "::error::Invalid URL \"${{ inputs.url }}\". Please provide a valid URL format."
@@ -100,10 +100,14 @@ runs:
         fi
 
         # Set NUMBER
+        if [[ ${{ inputs.number }} != 0 && -n "${{ inputs.url }}" ]]; then # If both number and url are provided
+          echo "::error::Cannot use 'number' and 'url' together. Please provide only one of them."
+          exit 1
+        fi
         if [[ ${{ inputs.number }} == 0 ]]; then # If number is not provided (number type defaults to 0 -- https://docs.github.com/en/enterprise-cloud@latest/actions/writing-workflows/workflow-syntax-for-github-actions#onworkflow_callinputs)
           if [[ -n "$NUMBER" ]]; then # If url is provided
             echo "NUMBER=$NUMBER" >> $GITHUB_ENV
-          if [[ -n "${{ github.event.issue }}" ]]; then # If in an issue event
+          elif [[ -n "${{ github.event.issue }}" ]]; then # If in an issue event
             echo "NUMBER=${{ github.event.issue.number }}" >> $GITHUB_ENV
           elif [[ -n "${{ github.event.pull_request }}" ]]; then # If in a pull_request event
             echo "NUMBER=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
@@ -111,15 +115,12 @@ runs:
             echo "::error::Couldn't infer PR/Issue number from the event payload, please enter PR/Issue number as an input."
             exit 1
           fi
-        elif [[ -n "${NUMBER}" ]]; then # If both number and url are provided
-          echo "::error::Cannot use 'number' and 'url' together. Please provide only one of them."
-          exit 1
         else
           echo "NUMBER=${{ inputs.number }}" >> $GITHUB_ENV
         fi
 
         # Set REPO
-        if [[ -n "${{ inputs.repo }}" && -n "$REPOSITORY" ]]; then # If both repo and url are provided
+        if [[ -n "${{ inputs.repo }}" && -n "${{ inputs.url }}" ]]; then # If both repo and url are provided
             echo "::error::Cannot use 'repo' and 'url' together. Please provide only one of them."
             exit 1
         fi
