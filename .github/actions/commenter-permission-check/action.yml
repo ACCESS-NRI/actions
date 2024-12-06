@@ -15,7 +15,8 @@ inputs:
 outputs:
   has-permission:
     value: ${{ steps.commenter.outputs.permission }}
-    description: 'true' if the commenter has at least the required permission level, 'false' otherwise
+    description: |-
+      'true' if the commenter has at least the required permission level, 'false' otherwise
 runs:
   using: composite
   steps:
