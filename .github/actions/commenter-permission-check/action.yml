@@ -1,0 +1,85 @@
+name: Commenter Permission Check
+description: Action that determines whether a commenter on a PR has certain permissions on the repository
+inputs:
+  minimum-permission:
+    type: string
+    required: true
+    description: |
+      Minimum level of permission required on the given repository.
+      One of: none read write admin.
+  exit-if-permission-denied:
+    type: boolean
+    required: true
+    default: false
+    description: Exit when commenter permission is denied.
+outputs:
+  has-permission:
+    value: ${{ steps.commenter.outputs.permission }}
+    description: |-
+      'true' if the commenter has at least the required permission level, 'false' otherwise
+runs:
+  using: composite
+  steps:
+    - name: Set required environment variables
+      shell: bash
+      run: echo "POSSIBLE_COMMENTER_PERMISSIONS=none read write admin" >> $GITHUB_ENV
+
+    - name: Check required context/variables exists
+      shell: bash
+      run: |
+        if ! grep --quiet "${{ inputs.minimum-permission }}" <<< "${{ env.POSSIBLE_COMMENTER_PERMISSIONS }}"; then
+          echo "::error::'${{ inputs.minimum-permission }}' is not one of '${{ env.POSSIBLE_COMMENTER_PERMISSIONS }}'"
+          exit 1
+        fi
+
+        if [[ -z "${{ github.event.issue.pull_request }}" ]]; then
+          echo "::error::This action requires an 'on.issue_comment' trigger, where the comment was on a Pull Request"
+          exit 1
+        fi
+
+        if [[ -z "${{ github.event.comment.user.login }}" ]]; then
+          echo "::error::Couldn't infer commenter login from context"
+          exit 1
+        fi
+
+    - name: Get list of sufficient permissions
+      id: sufficient-permissions
+      shell: bash
+      run: |
+        sufficient_permissions=""
+        sufficient_permission_found="false"
+
+        for permission in ${{ env.POSSIBLE_COMMENTER_PERMISSIONS }}; do
+          if [[ "${{ inputs.minimum-permission }}" == "$permission" || "$sufficient_permission_found" == "true" ]]; then
+            sufficient_permissions+="$permission "
+            sufficient_permission_found="true"
+          fi
+        done
+
+        echo "sufficient permissions are '$sufficient_permissions'"
+
+        echo "list=$sufficient_permissions" >> $GITHUB_OUTPUT
+
+    - name: Determine if commenter has permission to run the command
+      id: commenter
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        commenter_permissions=$(gh api \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          repos/${{ github.repository }}/collaborators/${{ github.event.comment.user.login }}/permission \
+          --jq '.permission'
+        )
+        if grep --quiet "$commenter_permissions" <<< "${{ steps.sufficient-permissions.outputs.list }}"; then
+          echo "Commenter has at least ${{ inputs.minimum-permission }} permission"
+          echo "permission=true" >> $GITHUB_OUTPUT
+        else
+          echo "Commenter does not have at least ${{ inputs.minimum-permission }} permission"
+          echo "permission=false" >> $GITHUB_OUTPUT
+          if [[ "${{ inputs.exit-if-permission-denied }}" == "true" ]]; then
+            echo "::error::Commenter does not have at least '${{ inputs.minimum-permission }}'"
+            exit 1
+          fi
+        fi
