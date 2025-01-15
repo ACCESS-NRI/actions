@@ -3,8 +3,12 @@ description: Action that comments on a given PR
 inputs:
   comment:
     type: string
-    required: true
+    required: false
     description: The body of the comment, in GitHub Markdown format
+  comment-file:
+    type: string
+    required: false
+    description: Path to a file containing a comment, in GitHub Markdown format
   pr:
     type: number
     required: false
@@ -32,6 +36,15 @@ runs:
     - name: Set Non-Required Inputs
       shell: bash
       run: |
+        # Verify comment/file exists
+        if [[ -z "${{ inputs.comment }}" && -z "${{ inputs.comment-file }}" ]]; then
+          echo "::error::Neither comment nor comment-file are set"
+          exit 1
+        elif [[ -n "${{ inputs.comment }}" && -n "${{ inputs.comment-file }}" ]]; then
+          echo ":error::Both comment and comment-file are set"
+          exit 1
+        fi
+
         # Set PR
         if [[ -z "${{ inputs.pr }}" ]]; then
           if [[ -n "${{ github.event.issue }}" ]]; then
@@ -60,8 +73,8 @@ runs:
         BODY: |
           ${{ inputs.comment }}
       run: |
-        if [[ ${{ inputs.edit-last }} == "true" ]]; then
-          echo "link=$(gh pr comment ${{ env.PR }} --edit-last --body '${{ env.BODY }}')" >> $GITHUB_OUTPUT
-        else
-          echo "link=$(gh pr comment ${{ env.PR }} --body '${{ env.BODY }}')" >> $GITHUB_OUTPUT
+        if [[ -n "${{ inputs.comment }}" ]]; then
+          echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last && '--edit-last' }} --body '${{ env.BODY }}')" >> $GITHUB_OUTPUT
+        elif [[ -n "${{ inputs.comment-file }}" ]]; then
+          echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last && '--edit-last' }} --body-file '${{ inputs.comment-file }}')" >> $GITHUB_OUTPUT
         fi

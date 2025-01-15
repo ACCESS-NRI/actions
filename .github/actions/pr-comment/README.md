@@ -9,15 +9,11 @@ This action comments on a given PR as `github-actions[bot]`.
 
 | Name | Type | Description | Required | Default | Example |
 | ---- | ---- | ----------- | -------- | ------- | ------- |
-| `comment` | `string` | The body of the comment, in GitHub Markdown format | `true` | N/A | `"Hello this is a comment from PR 20"` |
+| `comment` | `string` | The body of the comment, in GitHub Markdown format. Can't be used with `comment-file` | `false` | N/A | `"Hello this is a comment from PR 20"` |
+| `comment-file` | `string` | Path to a file containing a comment, in GitHub Markdown format. Can't be used with `comment` | `false` | N/A | `"./comment.md"` |
 | `pr` | `number` | The Pull Request Number that will be commented on | `false` | `github.event.[pull_request\|issue].number` | `20` |
 | `edit-last` | `boolean` | Edit the last comment by `github-actions[bot]` instead of creating a new one | `false` | `false` | `true` |
 | `token` | `string` | A GitHub Token/PAT that allows commenting on the given PR | `false` | `github.token` | `gha_pat_abcds...` |
-
-outputs:
-  comment-link:
-    description:
-    value: ${{ steps.comment.outputs.link }}
 
 ## Outputs
 
