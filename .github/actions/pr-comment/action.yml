@@ -29,10 +29,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
     - name: Set Non-Required Inputs
       shell: bash
       run: |
@@ -74,7 +70,7 @@ runs:
           ${{ inputs.comment }}
       run: |
         if [[ -n "${{ inputs.comment }}" ]]; then
-          echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last && '--edit-last' || '' }} --body '${{ env.BODY }}')" >> $GITHUB_OUTPUT
+          echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last == 'true' && '--edit-last' || '' }} --body '${{ env.BODY }}' --repo ${{ github.repository }})" >> $GITHUB_OUTPUT
         elif [[ -n "${{ inputs.comment-file }}" ]]; then
-          echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last && '--edit-last' || '' }} --body-file "${{ inputs.comment-file }}")" >> $GITHUB_OUTPUT
+          echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last == 'true' && '--edit-last' || '' }} --body-file "${{ inputs.comment-file }}" --repo ${{ github.repository }})" >> $GITHUB_OUTPUT
         fi
