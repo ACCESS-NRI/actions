@@ -76,5 +76,5 @@ runs:
         if [[ -n "${{ inputs.comment }}" ]]; then
           echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last && '--edit-last' || '' }} --body '${{ env.BODY }}')" >> $GITHUB_OUTPUT
         elif [[ -n "${{ inputs.comment-file }}" ]]; then
-          echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last && '--edit-last' || '' }} --body-file '${{ inputs.comment-file }}')" >> $GITHUB_OUTPUT
+          echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last && '--edit-last' || '' }} --body-file "${{ inputs.comment-file }}")" >> $GITHUB_OUTPUT
         fi
