@@ -100,11 +100,11 @@ runs:
         fi
 
         # Set NUMBER
-        if [[ ${{ inputs.number }} != 0 && -n "${{ inputs.url }}" ]]; then # If both number and url are provided
+        if [[ -n "${{ inputs.number }}" && -n "${{ inputs.url }}" ]]; then # If both number and url are provided
           echo "::error::Cannot use 'number' and 'url' together. Please provide only one of them."
           exit 1
         fi
-        if [[ ${{ inputs.number }} == 0 ]]; then # If number is not provided (number type defaults to 0 -- https://docs.github.com/en/enterprise-cloud@latest/actions/writing-workflows/workflow-syntax-for-github-actions#onworkflow_callinputs)
+        if [[ -z "${{ inputs.number }}" ]]; then # If number is not provided
           if [[ -n "$NUMBER" ]]; then # If url is provided
             echo "NUMBER=$NUMBER" >> $GITHUB_ENV
           elif [[ -n "${{ github.event.issue }}" ]]; then # If in an issue event
@@ -132,7 +132,7 @@ runs:
 
         # Set LABEL_STRING
         label=${{ inputs.label }}
-        echo "LABEL_STRING=<!-- pr-comment-action @@@${label}@@@ -->" >> $GITHUB_ENV
+        echo "LABEL_STRING=<!-- comment-action @@@${label}@@@ -->" >> $GITHUB_ENV
         
         # Set GH_TOKEN
         token="${{ inputs.token }}"
