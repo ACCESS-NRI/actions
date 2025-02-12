@@ -3,7 +3,7 @@ description: Action that comments on a given PR/Issue number
 inputs:
   message:
     type: string
-    required: true
+    required: false
     description: The comment body. Supports Markdown format.
   number:
     type: number
@@ -69,11 +69,17 @@ runs:
       with:
         fetch-depth: 0
 
-    - name: Set Non-Required Inputs
+    - name: Inputs sanity check
       shell: bash +H {0}
       # We use the +H option to prevent history expansion, so the '!' character can be printed out without 
       # problems.
       run: |
+        # Check MESSAGE
+        if [[ -z "${{ inputs.message }}" && ${{ inputs.delete }} != 'true' ]]; then
+          echo "::error::Please provide a message for the comment."
+          exit 1
+        fi
+
         # Parse URL
         if [[ -n "${{ inputs.url }}" ]]; then
           url= xargs <<< "${{ inputs.url }}" # Remove leading/trailing whitespaces
