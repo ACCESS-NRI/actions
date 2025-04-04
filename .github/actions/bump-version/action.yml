@@ -4,18 +4,15 @@ description: Action for bumping a version string
 inputs:
   version:
     required: true
-    type: string
     description: The version string that will be bumped
   versioning-scheme:
     required: true
-    type: string
     description: |
       The type of versioning scheme used. Currently supports 'calver-minor', 'semver-major-minor', where:
-      'calver-minor': 'YYYY.OM.MINOR'.
+      'calver-minor': 'YYYY.0M.00MINOR'.
       'semver-major-minor': 'MAJOR.MINOR'.
   bump-type:
     required: true
-    type: string
     description: |
       The type of bump. This changes depending on the `versioning-scheme`.
       'calver-minor': 'major', 'minor' or 'current'.
@@ -85,7 +82,7 @@ runs:
       # Regarding the regex in the script: `([0-9]{4}\.(0[1-9]|1[1-2]))\.([0-9]+)` is broken down into:
       # `([0-9]{4}\.(0[1-9]|1[1-2]))`: Major version as a date in the form YYYY.0M (eg. `2024.03`)
       # `\.`: Version separator (eg. `.`)
-      # `([0-9]+)`: Minor version (eg. `1`)
+      # `([0-9]+)`: Minor version (eg. `001`)
       # which would give `2024.03.1`
       run: |
         regex="([0-9]{4}\.(0[1-9]|1[1-2]))\.([0-9]+)"
@@ -101,12 +98,14 @@ runs:
           # we convert '.' to `date`s expected '-'-separator for date formats, and add a day so it is a valid date
           major_version_valid_date="${major_version/./-}-01"
           major_version=$(date --date "${major_version_valid_date} + 1 month" +%Y.%m)
-          minor_version=0
+          minor_version=000
         elif [[ "${{ inputs.bump-type }}" == "minor" ]]; then
           minor_version=$((minor_version + 1))
+          # We pad the minor version with leading zeros to ensure it is 3 digits long
+          minor_version=$(printf "%03d" "${minor_version}")
         elif [[ "${{ inputs.bump-type }}" == "current" ]]; then
           major_version=$(date +%Y.%m)
-          minor_version=0
+          minor_version=000
         fi
 
         new_version="${major_version}.${minor_version}"
