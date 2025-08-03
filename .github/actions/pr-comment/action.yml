@@ -33,11 +33,11 @@ runs:
       shell: bash
       run: |
         # Verify comment/file exists
-        if [[ -z "${{ inputs.comment }}" && -z "${{ inputs.comment-file }}" ]]; then
+        if [[ -z '${{ inputs.comment }}' && -z "${{ inputs.comment-file }}" ]]; then
           echo "::error::Neither comment nor comment-file are set"
           exit 1
-        elif [[ -n "${{ inputs.comment }}" && -n "${{ inputs.comment-file }}" ]]; then
-          echo ":error::Both comment and comment-file are set"
+        elif [[ -n '${{ inputs.comment }}' && -n "${{ inputs.comment-file }}" ]]; then
+          echo "::error::Both comment and comment-file are set"
           exit 1
         fi
 
@@ -69,7 +69,7 @@ runs:
         BODY: |
           ${{ inputs.comment }}
       run: |
-        if [[ -n "${{ inputs.comment }}" ]]; then
+        if [[ -n '${{ inputs.comment }}' ]]; then
           echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last == 'true' && '--edit-last' || '' }} --body '${{ env.BODY }}' --repo ${{ github.repository }})" >> $GITHUB_OUTPUT
         elif [[ -n "${{ inputs.comment-file }}" ]]; then
           echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last == 'true' && '--edit-last' || '' }} --body-file "${{ inputs.comment-file }}" --repo ${{ github.repository }})" >> $GITHUB_OUTPUT
