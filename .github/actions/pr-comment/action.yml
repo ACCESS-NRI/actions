@@ -37,10 +37,10 @@ runs:
         COMMENT: ${{ inputs.comment }}
       run: |
         # Verify comment/file exists
-        if [[ -z "${{ env.COMMENT }}" && -z "${{ inputs.comment-file }}" ]]; then
+        if [[ -z "${COMMENT}" && -z "${{ inputs.comment-file }}" ]]; then
           echo "::error::Neither comment nor comment-file are set"
           exit 1
-        elif [[ -n "${{ env.COMMENT }}" && -n "${{ inputs.comment-file }}" ]]; then
+        elif [[ -n "${COMMENT}" && -n "${{ inputs.comment-file }}" ]]; then
           echo "::error::Both comment and comment-file are set"
           exit 1
         fi
@@ -72,8 +72,8 @@ runs:
       env:
         COMMENT: ${{ inputs.comment }}
       run: |
-        if [[ -n "${{ env.COMMENT }}" ]]; then
-          echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last == 'true' && '--edit-last' || '' }} --body '${{ env.COMMENT }}' --repo ${{ github.repository }})" >> $GITHUB_OUTPUT
+        if [[ -n "${COMMENT}" ]]; then
+          echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last == 'true' && '--edit-last' || '' }} --body "${COMMENT}" --repo ${{ github.repository }})" >> $GITHUB_OUTPUT
         elif [[ -n "${{ inputs.comment-file }}" ]]; then
           echo "link=$(gh pr comment ${{ env.PR }} ${{ inputs.edit-last == 'true' && '--edit-last' || '' }} --body-file "${{ inputs.comment-file }}" --repo ${{ github.repository }})" >> $GITHUB_OUTPUT
         fi
