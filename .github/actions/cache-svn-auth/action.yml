@@ -99,10 +99,7 @@ runs:
       shell: bash
       run: |
         # Encode password in hexadecimal format
-        psw='${{ inputs.password }}'
-        hex_psw=$(echo -n "$psw" | xxd -p)
-        echo "psw=$psw"
-        echo "hex_psw=$hex_psw"
+        hex_psw=$(echo -n '${{ inputs.password }}' | xxd -p)
         # Set GPG passphrase caching
         echo "Caching SVN password for realm '${{ inputs.realm }}'..."
         cache_id='${{ steps.get-cache-id.outputs.svn-cache-id }}'
