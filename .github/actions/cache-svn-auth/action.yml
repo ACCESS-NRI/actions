@@ -29,10 +29,12 @@ runs:
     - name: Set up SVN
       shell: bash
       run: |
-        # Check SVN is installed
+        # Check SVN is installed, if not, install it
         if ! svn --version; then
-          echo "::error::SVN is not installed. Please install SVN before using this action."
-          exit 1
+          echo "SVN is not installed. Installing it..."
+          sudo apt-get update
+          sudo apt-get install -y subversion
+          svn --version
         fi
         # Set up SVN config
         mkdir -p ~/.subversion
