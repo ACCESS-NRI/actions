@@ -2,6 +2,10 @@
 
 This action uses GnuPG (GPG) passphrase caching to cache [Subversion (SVN)](https://svnbook.red-bean.com/en/1.7/svn-book.pdf) authentication password, for a specific svn realm.<br>
 
+> [! IMPORTANT ]
+> GitHub Runners are ephemeral, so SVN credential caching only persists within the same job. To ensure SVN access works as expected, this action must be executed in a step within the same job where subsequent SVN commands are run.
+> If SVN access is required across multiple jobs, you’ll need to invoke this action separately in each of those jobs.
+
 ## Inputs
 
 | Name | Type | Description | Required | Example |
@@ -22,21 +26,28 @@ This action is useful to cache SVN credentials with GPG, so svn commands can be 
 ## Examples
 
 <details>
-<summary><b>Cache SVN credentials for further steps</b></summary>
+<summary><b>Cache SVN credentials for the MetOffice SVN repo</b></summary>
 
 ```yaml
 # ...
-on: pull-request
 jobs:
-  comment:
+# ...
+  cache-svn-auth:
+    name: Cache SVN Authentication for MetOffice Repo
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
     steps:
-    - uses: access-nri/actions/.github/actions/comment@main
-      with:
-        message: |
-          Wow, a comment on PR `${{ github.event.pull_request.number }}`!
-          With multilines!
+      - name: Cache SVN authentication
+        uses: access-nri/actions/.github/actions/cache-svn-auth@main
+        with: 
+          username: '${{ secrets.MOSRS_USERNAME }}'
+          password: '${{ secrets.MOSRS_PASSWORD }}'
+          realm: '<https://code.metoffice.gov.uk:443> Met Office Code'
+    
+      - name: Run svn command
+        run: |
+          svn info --non-interactive https://code.metoffice.gov.uk/svn/utils/shumlib/trunk/
 ```
+
+> [!INFO]
+> For the workflow above to work, you need to set the `MOSRS_USERNAME` and `MOSRS_PASSWORDS` [GitHub secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets) in the repository that uses the workflow.
 </details>
