@@ -12,7 +12,10 @@ inputs:
   realm:
     type: string
     required: true
-    description: The SVN realm. Often in the form `<https://svn.domain.com:443> Description of realm`.
+    description: |
+      The SVN realm. Often in the form `<https://svn.domain.com:443> Description of realm`. 
+      To find the correct realm for your svn repo, you can read the 'Authentication realm:' field when being 
+      prompted for authentication after running a command like `svn info https://your.svn.server.com/path/to/repo`.
 outputs:
   svn-cache-id:
     description: |
@@ -22,6 +25,22 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Set up GPG-agent
+      shell: bash
+      run: |
+        # Check GPG is installed
+        if ! gpg --version; then
+          echo "::error::GPG is not installed. Please install GPG before using this action."
+          exit 1
+        fi
+        # Kill any existing GPG-agent processes
+        socket_dir=$(gpgconf --list-dirs socketdir)
+        rm -rf $socket_dir
+        # Start GPG-agent with preset passphrase support
+        eval $(gpg-agent --daemon --allow-preset-passphrase)
+        pid=$(gpg-connect-agent 'GETINFO pid' /bye | awk '{print $2}')
+        echo "GPG Agent PID: $pid"
+    
     - name: Set up SVN
       shell: bash
       run: |
@@ -40,22 +59,6 @@ runs:
         store-plaintext-passwords = no
         EOF
     
-    - name: Set up GPG-agent
-      shell: bash
-      run: |
-        # Check GPG is installed
-        if ! gpg --version; then
-          echo "::error::GPG is not installed. Please install GPG before using this action."
-          exit 1
-        fi
-        # Kill any existing GPG-agent processes
-        socket_dir=$(gpgconf --list-dirs socketdir)
-        rm -rf $socket_dir
-        # Start GPG-agent with preset passphrase support
-        eval $(gpg-agent --daemon --allow-preset-passphrase)
-        pid=$(gpg-connect-agent 'GETINFO pid' /bye | awk '{print $2}')
-        echo "GPG Agent PID: $pid"
-
     - name: Get svn cache-id
       id: get-cache-id
       shell: bash
@@ -71,8 +74,8 @@ runs:
         # Compute lengths of inputs, needed for svn auth cache file
         realm='${{ inputs.realm }}'
         username='${{ inputs.username }}'
-        len_realm=$(echo ${#realm})
-        len_username=$(echo ${#username})
+        len_realm=${#realm}
+        len_username=${#username}
         # Add svn cache file
         mkdir -p ~/.subversion/auth/svn.simple
         cat > ~/.subversion/auth/svn.simple/${{ steps.get-cache-id.outputs.svn-cache-id }} <<EOF
@@ -98,6 +101,5 @@ runs:
         hex_psw=$(echo -n '${{ inputs.password }}' | xxd -p)
         # Set GPG passphrase caching
         echo "Caching SVN password for realm '${{ inputs.realm }}'..."
-        cache_id='${{ steps.get-cache-id.outputs.svn-cache-id }}'
-        gpg-connect-agent "PRESET_PASSPHRASE $cache_id -1 $hex_psw" /bye
+        gpg-connect-agent "PRESET_PASSPHRASE ${{ steps.get-cache-id.outputs.svn-cache-id }} -1 $hex_psw" /bye
         echo "SVN password cached successfully for realm '${{ inputs.realm }}'."

@@ -8,7 +8,7 @@ This action uses GnuPG (GPG) passphrase caching to cache [Subversion (SVN)](http
 | ---- | ---- | ----------- | -------- | ------- |
 | `username` | `string` | The SVN username. | YES | `myuser` |
 | `password` | `string` | The SVN password. | YES | `mypassword` |
-| `realm` | `string` | A svn realm string, often in the form `<https://svn.domain.com:443> Description of realm` | YES | `<https://awesome.svn.repo.com:443> My awesome SVN repo` |
+| `realm` | `string` | The SVN realm. Often in the form `<https://svn.domain.com:443> Description of realm`.<br>To find the correct realm for your svn repo, you can read the `Authentication realm:` field when being prompted for authentication after running a command like `svn info https://your.svn.server.com/path/to/repo`. | YES | `<https://awesome.svn.repo.com:443> My awesome SVN repo` |
 
 ## Outputs
 
