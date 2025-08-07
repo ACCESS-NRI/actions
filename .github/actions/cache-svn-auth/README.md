@@ -49,6 +49,6 @@ jobs:
 ```
 
 :bulb:**TIP**<br>
-For the workflow above to work, you need to set the `MOSRS_USERNAME` and `MOSRS_PASSWORDS` [GitHub secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets) in the repository that uses the workflow.
+For the workflow above to work, you need to set the `MOSRS_USERNAME` and `MOSRS_PASSWORD` [GitHub secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets) in the repository that uses the workflow.
 
 </details>
