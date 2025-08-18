@@ -6,6 +6,9 @@ This action uses GnuPG (GPG) passphrase caching to cache [Subversion (SVN)](http
 > GitHub Runners are ephemeral, so SVN credential caching only persists within the same job. To ensure SVN access works as expected, this action must be executed in a step within the same job where subsequent SVN commands are run.
 > If SVN access is required across multiple jobs, you’ll need to invoke this action separately in each of those jobs.
 
+> [!WARNING]
+> This action terminates any existing GPG-agent process and launches a fresh instance. For this reason, any tasks relying on the GPG-agent cache (e.g., credential caching, GPG key caching) must be performed in a separate step after this action.
+
 ## Inputs
 
 | Name | Type | Description | Required | Example |
