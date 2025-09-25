@@ -68,45 +68,30 @@ jobs:
         if: ${{ inputs.pypi-package }}
         id: check-pypi-token
         run: |
-          # Set the PYPI_TOKEN GitHub secret as the default pypi_token value
-          input_pypi_token='${{ inputs.pypi-token }}'
-          pypi_token=${input_pypi_token:-'${{ secrets.PYPI_TOKEN }}'}
           # Check that pypi_token is not empty
-          if [ -z "$pypi_token" ]; then
-              echo "::error::pypi_token appears to be empty. Make sure to either:\n- specify a valid 'pypi_token'\n- set a valid PYPI_TOKEN GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
+          if [ -z '${{ inputs.pypi-token || secrets.PYPI_TOKEN }}' ]; then
+              echo "::error::pypi-token appears to be empty. Make sure to either:\n- specify a valid 'pypi-token'\n- set a valid PYPI_TOKEN GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
               exit 1
-          else
-              echo "pypi_token=$pypi_token" >> $GITHUB_OUTPUT
           fi
       
       - name: Check Anaconda token
         if: ${{ inputs.conda-package }}
         id: check-anaconda-token
         run: |
-          # Set the ANACONDA_TOKEN GitHub secret as the default anaconda_token value
-          input_anaconda_token='${{ inputs.anaconda-token }}'
-          anaconda_token=${input_anaconda_token:-'${{ secrets.ANACONDA_TOKEN }}'}
           # Check that anaconda_token is not empty
-          if [ -z "$anaconda_token" ]; then
-              echo "::error::anaconda_token appears to be empty. Make sure to either:\n- specify a valid 'anaconda_token'\n- set a valid ANACONDA_TOKEN GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
+          if [ -z '${{ inputs.anaconda-token || secrets.ANACONDA_TOKEN }}' ]; then
+              echo "::error::anaconda-token appears to be empty. Make sure to either:\n- specify a valid 'anaconda-token'\n- set a valid ANACONDA_TOKEN GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
               exit 1
-          else
-              echo "anaconda_token=$anaconda_token" >> $GITHUB_OUTPUT
           fi
       
       - name: Check Anaconda username
         if: ${{ inputs.conda-package }}
         id: check-anaconda-username
         run: |
-          # Set the ANACONDA_USERNAME GitHub secret as the default anaconda_username value
-          input_anaconda_username='${{ inputs.anaconda-username }}'
-          anaconda_username=${input_anaconda_username:-'${{ secrets.ANACONDA_USERNAME }}'}
           # Check that anaconda_username is not empty
-          if [ -z "$anaconda_username" ]; then
-              echo "::error::anaconda_username appears to be empty. Make sure to either:\n- specify a valid 'anaconda_username'\n- set a valid ANACONDA_USERNAME GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
+          if [ -z '${{ inputs.anaconda-username || secrets.ANACONDA_USERNAME }}' ]; then
+              echo "::error::anaconda-username appears to be empty. Make sure to either:\n- specify a valid 'anaconda-username'\n- set a valid ANACONDA_USERNAME GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
               exit 1
-          else
-              echo "anaconda_username=$anaconda_username" >> $GITHUB_OUTPUT
           fi
 
   build_tarball_and_python_wheel:
@@ -135,7 +120,7 @@ jobs:
   publish-pypi-package:
     name: Publish package to PyPI
     runs-on: ubuntu-latest
-    needs: [inputs_sanity_check, build_tarball_and_python_wheel]
+    needs: build_tarball_and_python_wheel
     if: ${{ inputs.pypi-package }}
     steps:
       - uses: actions/checkout@v5
@@ -149,13 +134,13 @@ jobs:
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
         with:
-          password: ${{ needs.inputs_sanity_check.outputs.pypi_token }}
+          password: '${{ inputs.pypi-token || secrets.PYPI_TOKEN }}'
           packages-dir: ${{ env.PYTHON_ARTIFACT_DIR }}
 
   publish-conda-package:
     name: Publish package to Anaconda.org
     runs-on: ubuntu-latest
-    needs: [inputs_sanity_check, build_tarball_and_python_wheel]
+    needs: build_tarball_and_python_wheel
     if: ${{ inputs.conda-package }}
     steps:
       - uses: actions/checkout@v4
@@ -185,8 +170,8 @@ jobs:
         uses: ACCESS-NRI/action-build-and-upload-conda-packages@v3.0.0
         with:
           meta_yaml_dir: recipe_dir
-          user: ${{ needs.inputs_sanity_check.outputs.anaconda_username }}
-          token: ${{ needs.inputs_sanity_check.outputs.anaconda_token }}
+          user: '${{ inputs.anaconda-username || secrets.ANACONDA_USERNAME }}'
+          token: '${{ inputs.anaconda-token || secrets.ANACONDA_TOKEN }}'
 
       - uses: actions/upload-artifact@v4
         with:
