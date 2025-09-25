@@ -1,0 +1,31 @@
+# publish-python-package workflow
+
+This workflow builds and publishes a pure python package distribution on Pypi and Anaconda.org.
+
+> [!IMPORTANT]
+> This workflow only works for pure Python projects, where the built distribution is compatible with any supported Python version or architecture.
+
+## About
+This workflow builds a Python wheel and source tarball from the project’s `pyproject.toml`, generates a conda recipe using [Grayskull](https://github.com/conda/grayskull), and builds the corresponding conda package. It then publishes the wheel to PyPI and the conda package to Anaconda.org, while also uploading an artifact containing the wheel, conda package, and tarball for further use.
+
+## Inputs
+
+| Name | Type | Description | Required | Default | Example |
+| ---- | ---- | ----------- | -------- | ------- | ------- |
+| pypi_package | bool | Whether to create the Python wheel and publish it to PyPI | NO | `true` | `false` |
+| conda_package | bool | Whether to create the Conda package and publish it to Anaconda.org | NO | `true` | `false` |
+| pypi_token | string | The token used to publish the package to PyPI. Ignored if `pypi_package` is `false`. | NO | `${{ secrets.PYPI_TOKEN }}` | `${{ secrets.MY_CUSTOM_PYPI_TOKEN }}` |
+| anaconda_token | string | The token used to publish the package to Anaconda.org. Ignored if `conda_package` is `false`. | NO | `${{ secrets.ANACONDA_TOKEN }}` | `${{ secrets.MY_CUSTOM_ANACONDA_TOKEN }}` |
+| anaconda_username | string | The name of the conda channel where the package will be published to. Ignored if `conda_package` is false. | NO | `${{ secrets.ANACONDA_USERNAME }}` | `${{ secrets.MY_CUSTOM_ANACONDA_USERNAME }}` |
+
+## Outputs
+
+| Name | Type | Description | Example |
+| --- | --- | --- | --- |
+| artifact-name | string | The name of the artifact that gets uploaded by the workflow | `_dist_artifact` |
+
+## Usage
+
+```yaml
+
+```
