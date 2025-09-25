@@ -5,6 +5,12 @@ This workflow builds and publishes a pure python package distribution on Pypi an
 > [!IMPORTANT]
 > This workflow only works for pure Python projects, where the built distribution is compatible with any supported Python version or architecture.
 
+> [!IMPORTANT]
+> When any of the `pypi_token`, `anaconda_token` or `anaconda_username` inputs is not provided, the workflow needs to be run with `secrets: inherit`. For more information, refer to [Usage](#usage).
+
+> [!NOTE]
+> This workflow does not support [PyPI Trusted Publisher](https://docs.pypi.org/trusted-publishers/) technology, as [it cannot be used within a reusable workflow at this time](https://github.com/pypa/gh-action-pypi-publish?tab=readme-ov-file#trusted-publishing). Therefore, a PyPI token is required to publish to PyPI.
+
 ## About
 This workflow builds a Python wheel and source tarball from the project’s `pyproject.toml`, generates a conda recipe using [Grayskull](https://github.com/conda/grayskull), and builds the corresponding conda package. It then publishes the wheel to PyPI and the conda package to Anaconda.org, while also uploading an artifact containing the wheel, conda package, and tarball for further use.
 
