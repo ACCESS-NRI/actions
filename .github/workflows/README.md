@@ -37,7 +37,8 @@ This workflow builds and publishes a pure python package distribution on Pypi an
 > This workflow only works for pure Python projects, where the built distribution is compatible with any supported Python version or architecture.
 
 > [!IMPORTANT]
-> This workflow automatically sets the default PyPI token, Anaconda token, and Anaconda username using specific GitHub secrets from the calling repository. Therefore, if any of the inputs `pypi-token`, `anaconda-token`, or `anaconda-username` are not provided, the workflow must be run with `secrets: inherit`. For more details, see [Usage](#usage).
+> This workflow sets the PyPI token, Anaconda token, and Anaconda username using the calling repository's secrets `PYPI_TOKEN`, `ANACONDA_TOKEN` and `ANACONDA_USERNAME`, respectively. 
+> Make sure to define these secrets in the calling repository, and to call this workflow with `secrets: inherit`. For more details, see [Usage](#usage).
 
 > [!NOTE]
 > This workflow does not support [PyPI Trusted Publisher](https://docs.pypi.org/trusted-publishers/) technology, as [it cannot be used within a reusable workflow at this time](https://github.com/pypa/gh-action-pypi-publish?tab=readme-ov-file#trusted-publishing). Therefore, a PyPI token is required to publish to PyPI.
@@ -52,9 +53,6 @@ This workflow builds a Python wheel and source tarball from the project’s `pyp
 | pyproject-toml-dir | bool | The directory where the `pyproject.toml` file is located, relative to the repository top-level directory. | NO | `.` | `path/to/pyproject/dir` |
 | pypi-package | bool | Whether to create the Python wheel and publish it to PyPI. | NO | `true` | `false` |
 | conda-package | bool | Whether to create the Conda package and publish it to Anaconda.org. | NO | `true` | `false` |
-| pypi-token | string | The token used to publish the package to PyPI. Ignored if `pypi-package` is `false`. | NO | `${{ secrets.PYPI_TOKEN }}` | `${{ secrets.MY_CUSTOM_PYPI_TOKEN }}` |
-| anaconda-token | string | The token used to publish the package to Anaconda.org. Ignored if `conda-package` is `false`. | NO | `${{ secrets.ANACONDA_TOKEN }}` | `${{ secrets.MY_CUSTOM_ANACONDA_TOKEN }}` |
-| anaconda-username | string | The name of the conda channel where the package will be published to. Ignored if `conda-package` is false. | NO | `${{ secrets.ANACONDA_USERNAME }}` | `${{ secrets.MY_CUSTOM_ANACONDA_USERNAME }}` |
 
 ### Outputs
 
@@ -64,44 +62,13 @@ This workflow builds a Python wheel and source tarball from the project’s `pyp
 
 ### Usage
 
-#### Basic Usage
+> [!IMPORTANT]
+> This workflow sets the PyPI token, Anaconda token, and Anaconda username using the calling repository's secrets `PYPI_TOKEN`, `ANACONDA_TOKEN` and `ANACONDA_USERNAME`, respectively.
+> Make sure to define these secrets in the calling repository, and to call this workflow with `secrets: inherit`.
+
 ```yaml
 jobs:
   publish_python_package:
     uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
     secrets: inherit
 ```
-
-> [!NOTE]
-> This will use the PyPI token, Anaconda token and Anaconda username from the calling repo's `${{ secrets.PYPI_TOKEN }}`, `${{ secrets.ANACONDA_TOKEN }}` and `${{ secrets.ANACONDA_USERNAME }}`, respectively.
-
-
-#### Custom anaconda token
-```yaml
-jobs:
-  publish_python_package:
-    uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
-    secrets: inherit
-    with:
-      anaconda-token: ${{ secrets.CUSTOM_ANACONDA_TOKEN }}
-```
-
-> [!NOTE]
-> This will use the PyPI token and Anaconda username from the calling repo's `${{ secrets.PYPI_TOKEN }}` and `${{ secrets.ANACONDA_USERNAME }}`, respectively.
-
-
-#### Custom toml directory, pypi token and with no conda package publishing
-```yaml
-jobs:
-  publish_python_package:
-    uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
-    secrets: inherit
-    with:
-      pyproject-toml-dir: "myproject/"
-      pypi-token: ${{ secrets.MY_PYPI_TOKEN }}
-      conda-package: false
-```
-
-> [!NOTE]
-> This will use the Anaconda token and username from the calling repo's `${{ secrets.ANACONDA_TOKEN }}` and `${{ secrets.ANACONDA_USERNAME }}`, respectively.
-

@@ -16,33 +16,17 @@ on:
         required: false
         default: true
         description: "Whether to create the Conda package and publish it to Anaconda.org"
-      pypi-token:
-        type: string
-        required: false
-        description: "The token used to publish the package to PyPI. Ignored if `pypi-package` is false."
-      anaconda-token:
-        type: string
-        required: false
-        description: "The token used to publish the package to Anaconda.org. Ignored if `conda-package` is false."
-      anaconda-username:
-        type: string
-        required: false
-        description: "The name of the conda channel where the package will be published to. Ignored if `conda-package` is false."
 
 env:
   PYTHON_ARTIFACT_NAME: _python_artifact
-  PYTHON_ARTIFACT_DIR: _artifact_dir
+  PYTHON_ARTIFACT_DIR: ${{ github.workspace }}/_python_artifact_dir
   ARTIFACT_NAME: _dist_artifact
-  RECIPE_DIR: _recipe_dir
       
 jobs:
   inputs_sanity_check:
     runs-on: ubuntu-latest
     outputs:
       pyproject_toml_dir: ${{ steps.check-pyproject-toml-dir.outputs.pyproject_toml_dir }}
-      pypi_token: ${{ steps.check-pypi-token.outputs.pypi_token }}
-      anaconda_token: ${{ steps.check-anaconda-token.outputs.anaconda_token }}
-      anaconda_username: ${{ steps.check-anaconda-username.outputs.anaconda_username }}
     steps:
       - uses: actions/checkout@v5
       
@@ -74,32 +58,26 @@ jobs:
           echo "pyproject.toml found in '$pyproject_toml_dir'"
     
       - name: Check PyPI token
-        if: ${{ inputs.pypi-package }}
-        id: check-pypi-token
         run: |
-          # Check that pypi_token is not empty
-          if [ -z '${{ inputs.pypi-token || secrets.PYPI_TOKEN }}' ]; then
-              echo "::error::pypi-token appears to be empty. Make sure to either:\n- specify a valid 'pypi-token'\n- set a valid PYPI_TOKEN GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
+          # Check that 'secrets.PYPI_TOKEN' is not empty
+          if [ -z '${{ secrets.PYPI_TOKEN }}' ]; then
+              echo "::error::PYPI_TOKEN secret appears to be empty. Make sure to set a valid PYPI_TOKEN GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
               exit 1
           fi
       
       - name: Check Anaconda token
-        if: ${{ inputs.conda-package }}
-        id: check-anaconda-token
         run: |
-          # Check that anaconda_token is not empty
-          if [ -z '${{ inputs.anaconda-token || secrets.ANACONDA_TOKEN }}' ]; then
-              echo "::error::anaconda-token appears to be empty. Make sure to either:\n- specify a valid 'anaconda-token'\n- set a valid ANACONDA_TOKEN GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
+          # Check that 'secrets.ANACONDA_TOKEN' is not empty
+          if [ -z '${{ secrets.ANACONDA_TOKEN }}' ]; then
+              echo "::error::ANACONDA_TOKEN secret appears to be empty. Make sure to set a valid ANACONDA_TOKEN GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
               exit 1
           fi
-      
+
       - name: Check Anaconda username
-        if: ${{ inputs.conda-package }}
-        id: check-anaconda-username
         run: |
-          # Check that anaconda_username is not empty
-          if [ -z '${{ inputs.anaconda-username || secrets.ANACONDA_USERNAME }}' ]; then
-              echo "::error::anaconda-username appears to be empty. Make sure to either:\n- specify a valid 'anaconda-username'\n- set a valid ANACONDA_USERNAME GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
+          # Check that 'secrets.ANACONDA_USERNAME' is not empty
+          if [ -z '${{ secrets.ANACONDA_USERNAME }}' ]; then
+              echo "::error::ANACONDA_USERNAME secret appears to be empty. Make sure to set a valid ANACONDA_USERNAME GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
               exit 1
           fi
 
@@ -146,7 +124,7 @@ jobs:
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
         with:
-          password: '${{ inputs.pypi-token || secrets.PYPI_TOKEN }}'
+          password: ${{ secrets.PYPI_TOKEN }}
           packages-dir: ${{ env.PYTHON_ARTIFACT_DIR }}
 
   publish-conda-package:
@@ -177,19 +155,22 @@ jobs:
       - name: Create recipe from tarball
         id: create-recipe
         run: |
-          mkdir ${{ env.RECIPE_DIR }} && cd ${{ env.RECIPE_DIR }}
-          micromamba run -n build-env grayskull pypi ../${{ env.PYTHON_ARTIFACT_DIR }}/*.tar.gz
-          ls -l
-          echo ============
-          ls -l addmeta
+          # We create a recipe dir and cd into it, because there is no 'outdir' option or similar in grayskull
+          recipe_dir=${{ github.workspace }}/_recipe_dir
+          mkdir "$recipe_dir" && cd "$recipe_dir"
+          # Create conda recipe from the tarball
+          micromamba run -n build-env grayskull pypi ${{ env.PYTHON_ARTIFACT_DIR }}/*.tar.gz
+          # Find the directory containing meta.yaml.
+          meta_yaml_dir=$(find "$recipe_dir" -name meta.yaml -exec dirname {} \;)
+          echo "meta-yaml-dir=$meta_yaml_dir" >> $GITHUB_OUTPUT
 
       - name: Publish package to Anaconda.org
         id: publish-conda-package
         uses: ACCESS-NRI/action-build-and-upload-conda-packages@v3.0.0
         with:
-          meta_yaml_dir: ${{ env.RECIPE_DIR }}
-          user: '${{ inputs.anaconda-username || secrets.ANACONDA_USERNAME }}'
-          token: '${{ inputs.anaconda-token || secrets.ANACONDA_TOKEN }}'
+          meta_yaml_dir: ${{ steps.create-recipe.outputs.meta-yaml-dir }}
+          user: ${{ secrets.ANACONDA_USERNAME }}
+          token: ${{ secrets.ANACONDA_TOKEN }}
 
       - uses: actions/upload-artifact@v4
         with:
