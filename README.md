@@ -1,6 +1,6 @@
 # actions
 
-Custom GitHub Actions for use across the ACCESS-NRI.
+Custom GitHub Actions and Workflows for use across the ACCESS-NRI.
 
 ## Actions
 
@@ -13,7 +13,5 @@ Custom GitHub Actions for use across the ACCESS-NRI.
 
 ## Workflows
 
-* `validate-json.yml`: Runs a matrix job that validates all the `*.json`/`*.schema.json`.
-  [validate-json README.md](.github/workflows/README.md#validate-json-workflow)
-* `publish-python-package.yml`: Builds and publishes a pure python package distribution on Pypi and Anaconda.org.
-  [publish-python-package README.md](.github/workflows/README.md#publish-python-package-workflow)
+* [validate-json.yml](.github/workflows/README.md#validate-json-workflow): Runs a matrix job that validates all the `*.json`/`*.schema.json`.
+* [publish-python-package.yml](.github/workflows/README.md#publish-python-package-workflow): Builds and publishes a pure python package distribution on Pypi and Anaconda.org.
