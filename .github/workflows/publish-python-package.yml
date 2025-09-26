@@ -42,20 +42,24 @@ jobs:
         id: check-pyproject-toml-dir
         run: |
           # Set the current repository root as the default pyproject_toml_dir value
-          input_pyproject_toml_dir='${{ inputs.pyproject-toml-dir }}'
-          pyproject_toml_dir=${input_pyproject_toml_dir:-.}
-          # Check that the directory exists
-          if [ ! -d "$pyproject_toml_dir" ]; then
-            echo "::error Directory '$pyproject_toml_dir' not found in the current repository"
-            exit 1
-          fi
-          # Check that directory contains a pyproject.toml file
-          if [ ! -f "$pyproject_toml_dir/pyproject.toml" ]; then
-            echo "::error 'pyproject.toml' not found in '${{ inputs.pyproject-toml-dir }}'"
-            exit 1
+          if [ -z '${{ inputs.pyproject-toml-dir }}' ]; then
+            pyproject_toml_dir='.'
+            if [[ ! -f "$pyproject_toml_dir"/pyproject.yml ]]; then
+              echo "::error No 'pyproject.yml' found in the repository top-level folder. To specify a directory for your 'pyproject.yml', please use the 'pyproject-toml-dir' input"
+              exit 1
+            fi
+          else
+            pyproject_toml_dir='${{ inputs.pyproject-toml-dir }}'
+            if [[ ! -d "$pyproject_toml_dir" ]]; then
+              echo "::error Specified 'pyproject-toml-dir' directory '$pyproject_toml_dir' not found in the current repository"
+              exit 1
+            fi
+            if [[ ! -f "$pyproject_toml_dir"/pyproject.yml ]]; then
+              echo "::error No 'pyproject.yml' found in the specified 'pyproject-toml-dir' directory '$pyproject_toml_dir'"
+              exit 1
+            fi
           fi
           echo "pyproject_toml_dir=$pyproject_toml_dir" >> $GITHUB_OUTPUT
-          echo "pyproject.toml found in '$pyproject_toml_dir'"
     
       - name: Check PyPI token
         run: |
