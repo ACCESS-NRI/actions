@@ -24,6 +24,8 @@ on:
 env:
   PYTHON_ARTIFACT_NAME: _python_artifact
   PYTHON_ARTIFACT_DIR: ${{ github.workspace }}/_python_artifact_dir
+  CONDA_ARTIFACT_NAME: _conda_artifact
+  CONDA_ARTIFACT_DIR: ${{ github.workspace }}/_conda_artifact_dir
   ARTIFACT_NAME: _dist_artifact
   ARTIFACT_DIR: ${{ github.workspace }}/_dist_artifact_dir
 
@@ -141,8 +143,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build_tarball_and_python_wheel
     if: ${{ inputs.conda-package }}
-    outputs:
-      files: ${{ steps.publish-conda-package.outputs.paths }}
     steps:
       - uses: actions/checkout@v4
 
@@ -183,20 +183,35 @@ jobs:
           user: ${{ secrets.ANACONDA_USERNAME }}
           token: ${{ secrets.ANACONDA_TOKEN }}
     
+      - name: Upload conda artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.CONDA_ARTIFACT_NAME }}
+          path: ${{ steps.publish-conda-package.outputs.paths }}
+    
   upload-artifact:
-    name: Upload artifact
+    name: Upload artifact with tarball and built packages
     runs-on: ubuntu-latest
     needs: [publish-pypi-package, publish-conda-package]
     outputs:
       artifact-name: ${{ steps.set-output-artifact-name.outputs.artifact-name }}
     steps:
+      # To avoid downloading artifacts produced by previous steps, we download the desired artifacts separately 
       - name: Download python artifact
         uses: actions/download-artifact@v5
         with:
           name: ${{ env.PYTHON_ARTIFACT_NAME }}
           path: ${{ env.PYTHON_ARTIFACT_DIR }}
+      
+      - name: Download conda artifact
+        if: ${{ inputs.conda-package }}
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ env.CONDA_ARTIFACT_NAME }}
+          path: ${{ env.CONDA_ARTIFACT_DIR }}
         
-    #   # To avoid having intermediary artifacts from previous steps, we delete the python artifact
+    #   # To avoid having intermediary artifacts from previous steps
+    #   # we delete the python and conda artifacts
     #   - name: Delete artifacts
     #     env:
     #       GH_TOKEN: ${{ github.token }}
@@ -210,10 +225,10 @@ jobs:
       - name: Create output artifact directory
         run: |
           mkdir -p ${{ env.ARTIFACT_DIR }}
-          if [ -n '${{ needs.publish-conda-package.outputs.files }}' ]; then
-            mv ${{ needs.publish-conda-package.outputs.files }} ${{ env.ARTIFACT_DIR }}
-          fi
           mv ${{ env.PYTHON_ARTIFACT_DIR }}/* ${{ env.ARTIFACT_DIR }}
+          if [ '${{ inputs.conda-package }}' = 'true' ]; then
+            mv ${{ env.CONDA_ARTIFACT_DIR }}/* ${{ env.ARTIFACT_DIR }}
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
