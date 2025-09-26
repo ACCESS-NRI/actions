@@ -16,6 +16,10 @@ on:
         required: false
         default: true
         description: "Whether to create the Conda package and publish it to Anaconda.org"
+    outputs:
+      artifact-name:
+        description: "The name of the artifact containing the built packages and tarball"
+        value: ${{ jobs.upload-artifact.outputs.artifact-name }}
 
 env:
   PYTHON_ARTIFACT_NAME: _python_artifact
@@ -192,16 +196,16 @@ jobs:
           name: ${{ env.PYTHON_ARTIFACT_NAME }}
           path: ${{ env.PYTHON_ARTIFACT_DIR }}
         
-      # To avoid having intermediary artifacts from previous steps, we delete the python artifact
-      - name: Delete artifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # Get the python artifact ID
-          artifact_id=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
-            --jq '.artifacts[] | select(.name=="${{ env.PYTHON_ARTIFACT_NAME }}") | .id')
-          # Delete the artifact
-          gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$artifact_id
+    #   # To avoid having intermediary artifacts from previous steps, we delete the python artifact
+    #   - name: Delete artifacts
+    #     env:
+    #       GH_TOKEN: ${{ github.token }}
+    #     run: |
+    #       # Get the python artifact ID
+    #       artifact_id=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
+    #         --jq '.artifacts[] | select(.name=="${{ env.PYTHON_ARTIFACT_NAME }}") | .id')
+    #       # Delete the artifact
+    #       gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$artifact_id
 
       - name: Create output artifact directory
         run: |

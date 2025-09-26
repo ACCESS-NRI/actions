@@ -58,7 +58,7 @@ This workflow builds a Python wheel and source tarball from the project’s `pyp
 
 | Name | Type | Description | Example |
 | --- | --- | --- | --- |
-| artifact-name | string | The name of the artifact that gets uploaded by the workflow | `_dist_artifact` |
+| artifact-name | string | The name of the artifact containing the built packages and tarball | `_dist_artifact` |
 
 ### Usage
 
@@ -66,9 +66,43 @@ This workflow builds a Python wheel and source tarball from the project’s `pyp
 > This workflow sets the PyPI token, Anaconda token, and Anaconda username using the calling repository's secrets `PYPI_TOKEN`, `ANACONDA_TOKEN` and `ANACONDA_USERNAME`, respectively.
 > Make sure to define these secrets in the calling repository, and to call this workflow with `secrets: inherit`.
 
+#### Basic usage
 ```yaml
 jobs:
   publish_python_package:
     uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
     secrets: inherit
+```
+
+#### Create a GitHub release with the built packages and tarball
+```yaml
+on:
+  push:
+    tags:
+      - '**'
+jobs:
+  publish_python_package:
+    uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
+    secrets: inherit
+  
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: publish_python_package
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ needs.publish_python_package.outputs.artifact-name }}
+          path: my_artifact_dir
+
+      - name: Create Release
+        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 #v2.3.3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: my-package ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            my_artifact_dir/*
 ```
