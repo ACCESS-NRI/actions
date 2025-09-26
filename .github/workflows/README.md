@@ -72,7 +72,12 @@ jobs:
   publish_python_package:
     uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
     secrets: inherit
+    permissions:
+      actions: write
 ```
+
+> [!TIP]
+> The `permissions: actions: write` is used to delete intermediary artifacts produced by the workflow. If omitted, the intermediary artifacts will not be deleted.
 
 #### Create a GitHub release with the built packages and tarball
 ```yaml
@@ -84,6 +89,8 @@ jobs:
   publish_python_package:
     uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
     secrets: inherit
+    permissions:
+      actions: write
   
   create-github-release:
     name: Create GitHub Release
