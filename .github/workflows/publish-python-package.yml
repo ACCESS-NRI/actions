@@ -44,8 +44,8 @@ jobs:
           # Set the current repository root as the default pyproject_toml_dir value
           if [ -z '${{ inputs.pyproject-toml-dir }}' ]; then
             pyproject_toml_dir='.'
-            if [[ ! -f "$pyproject_toml_dir"/pyproject.yml ]]; then
-              echo "::error No 'pyproject.yml' found in the repository top-level folder. To specify a directory for your 'pyproject.yml', please use the 'pyproject-toml-dir' input"
+            if [[ ! -f "$pyproject_toml_dir"/pyproject.toml ]]; then
+              echo "::error No 'pyproject.toml' found in the repository top-level folder. To specify a directory for your 'pyproject.toml', please use the 'pyproject-toml-dir' input"
               exit 1
             fi
           else
@@ -54,8 +54,8 @@ jobs:
               echo "::error Specified 'pyproject-toml-dir' directory '$pyproject_toml_dir' not found in the current repository"
               exit 1
             fi
-            if [[ ! -f "$pyproject_toml_dir"/pyproject.yml ]]; then
-              echo "::error No 'pyproject.yml' found in the specified 'pyproject-toml-dir' directory '$pyproject_toml_dir'"
+            if [[ ! -f "$pyproject_toml_dir"/pyproject.toml ]]; then
+              echo "::error No 'pyproject.toml' found in the specified 'pyproject-toml-dir' directory '$pyproject_toml_dir'"
               exit 1
             fi
           fi
