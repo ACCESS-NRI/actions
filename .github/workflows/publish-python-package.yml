@@ -52,7 +52,7 @@ jobs:
           if [ -z '${{ inputs.pyproject-toml-dir }}' ]; then
             pyproject_toml_dir='.'
             if [[ ! -f "$pyproject_toml_dir"/pyproject.toml ]]; then
-              echo "::error::No 'pyproject.toml' found in the repository top-level folder. To specify a directory for your 'pyproject.toml', please use the 'pyproject-toml-dir' input"
+              echo "::error::No 'pyproject.toml' found in the repository top-level folder. To specify the directory of your 'pyproject.toml', please use the 'pyproject-toml-dir' input"
               exit 1
             fi
           else
@@ -72,7 +72,7 @@ jobs:
         run: |
           # Check that 'secrets.PYPI_TOKEN' is not empty
           if [ -z '${{ secrets.PYPI_TOKEN }}' ]; then
-              echo "::error::PYPI_TOKEN secret appears to be empty. Make sure to set a valid PYPI_TOKEN GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
+              echo "::error::PYPI_TOKEN secret appears to be empty. Make sure to set a valid PYPI_TOKEN GitHub secret in the calling repository and call this workflow using \`secrets: inherit\`"
               exit 1
           fi
       
@@ -80,7 +80,7 @@ jobs:
         run: |
           # Check that 'secrets.ANACONDA_TOKEN' is not empty
           if [ -z '${{ secrets.ANACONDA_TOKEN }}' ]; then
-              echo "::error::ANACONDA_TOKEN secret appears to be empty. Make sure to set a valid ANACONDA_TOKEN GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
+              echo "::error::ANACONDA_TOKEN secret appears to be empty. Make sure to set a valid ANACONDA_TOKEN GitHub secret in the calling repository and call this workflow using \`secrets: inherit\`"
               exit 1
           fi
 
@@ -88,7 +88,7 @@ jobs:
         run: |
           # Check that 'secrets.ANACONDA_USERNAME' is not empty
           if [ -z '${{ secrets.ANACONDA_USERNAME }}' ]; then
-              echo "::error::ANACONDA_USERNAME secret appears to be empty. Make sure to set a valid ANACONDA_USERNAME GitHub secret in the calling repo and call this workflow using \`secrets: inherit\`"
+              echo "::error::ANACONDA_USERNAME secret appears to be empty. Make sure to set a valid ANACONDA_USERNAME GitHub secret in the calling repository and call this workflow using \`secrets: inherit\`"
               exit 1
           fi
 
