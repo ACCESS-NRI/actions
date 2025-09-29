@@ -1,6 +1,9 @@
-# Workflows
+# Workflow list
 
-## validate-json.yml
+- [validate-json](#validate-json-workflow)
+- [publish-python-package](#publish-python-package-workflow)
+
+## validate-json workflow
 
 This workflow validates JSON (`*.json`) against a given schema (`*.schema.json`), provided they are in the same directory. 
 
@@ -24,4 +27,89 @@ jobs:
     uses: access-nri/actions/.github/workflows/validate-json@main
     with:
       src: 'config'
+```
+
+## publish-python-package workflow
+
+This workflow builds and publishes a pure python package distribution on Pypi and Anaconda.org.
+
+> [!IMPORTANT]
+> This workflow only works for pure Python projects, where the built distribution is compatible with any supported Python version or architecture.
+
+> [!IMPORTANT]
+> This workflow sets the PyPI token, Anaconda token, and Anaconda username using the calling repository's secrets `PYPI_TOKEN`, `ANACONDA_TOKEN` and `ANACONDA_USERNAME`, respectively. 
+> Make sure to define these secrets in the calling repository, and to call this workflow with `secrets: inherit`. For more details, see [Usage](#usage).
+
+> [!NOTE]
+> This workflow does not support [PyPI Trusted Publisher](https://docs.pypi.org/trusted-publishers/) technology, as [it cannot be used within a reusable workflow at this time](https://github.com/pypa/gh-action-pypi-publish?tab=readme-ov-file#trusted-publishing). Therefore, a PyPI token is required to publish to PyPI.
+
+### About
+This workflow builds a Python wheel and source tarball from the project’s `pyproject.toml`, generates a conda recipe using [Grayskull](https://github.com/conda/grayskull), and builds the corresponding conda package. It then publishes the wheel to PyPI and the conda package to Anaconda.org, while also uploading an artifact containing the wheel, conda package, and tarball for further use.
+
+### Inputs
+
+| Name | Type | Description | Required | Default | Example |
+| ---- | ---- | ----------- | -------- | ------- | ------- |
+| pyproject-toml-dir | string | The directory where the `pyproject.toml` file is located, relative to the repository top-level directory. | NO | `.` | `path/to/pyproject/dir` |
+| pypi-package | bool | Whether to create the Python wheel and publish it to PyPI. | NO | `true` | `false` |
+| conda-package | bool | Whether to create the Conda package and publish it to Anaconda.org. | NO | `true` | `false` |
+
+### Outputs
+
+| Name | Type | Description | Example |
+| --- | --- | --- | --- |
+| artifact-name | string | The name of the artifact containing the built packages and tarball | `_dist_artifact` |
+
+### Usage
+
+> [!IMPORTANT]
+> This workflow sets the PyPI token, Anaconda token, and Anaconda username using the calling repository's secrets `PYPI_TOKEN`, `ANACONDA_TOKEN` and `ANACONDA_USERNAME`, respectively.
+> Make sure to define these secrets in the calling repository, and to call this workflow with `secrets: inherit`.
+
+#### Basic usage
+```yaml
+jobs:
+  publish_python_package:
+    uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
+    secrets: inherit
+    permissions:
+      actions: write
+```
+
+> [!TIP]
+> The `permissions: actions: write` is used to delete intermediary artifacts produced by the workflow. If omitted, the intermediary artifacts will not be deleted.
+
+#### Create a GitHub release with the built packages and tarball
+```yaml
+on:
+  push:
+    tags:
+      - '**'
+jobs:
+  publish_python_package:
+    uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
+    secrets: inherit
+    permissions:
+      actions: write
+  
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: publish_python_package
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ needs.publish_python_package.outputs.artifact-name }}
+          path: my_artifact_dir
+
+      - name: Create Release
+        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 #v2.3.3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: my-package ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            my_artifact_dir/*
 ```

@@ -1,0 +1,248 @@
+name: Publish Python package
+on:
+  workflow_call:
+    inputs:
+      pyproject-toml-dir:
+        type: string
+        required: false
+        description: "The directory where the pyproject.toml file is located, relative to the repository top-level directory."
+      pypi-package:
+        type: boolean
+        required: false
+        default: true
+        description: "Whether to create the Python wheel and publish it to PyPI"
+      conda-package:
+        type: boolean
+        required: false
+        default: true
+        description: "Whether to create the Conda package and publish it to Anaconda.org"
+    outputs:
+      artifact-name:
+        description: "The name of the artifact containing the built packages and tarball"
+        value: ${{ jobs.upload-artifact.outputs.artifact-name }}
+
+env:
+  PYTHON_ARTIFACT_NAME: _python_artifact
+  PYTHON_ARTIFACT_DIR: ${{ github.workspace }}/_python_artifact_dir
+  CONDA_ARTIFACT_NAME: _conda_artifact
+  CONDA_ARTIFACT_DIR: ${{ github.workspace }}/_conda_artifact_dir
+  ARTIFACT_NAME: _dist_artifact
+  ARTIFACT_DIR: ${{ github.workspace }}/_dist_artifact_dir
+
+jobs:
+  inputs_sanity_check:
+    runs-on: ubuntu-latest
+    outputs:
+      pyproject_toml_dir: ${{ steps.check-pyproject-toml-dir.outputs.pyproject_toml_dir }}
+    steps:
+      - uses: actions/checkout@v5
+      
+      - name: Check package to publish
+        run: |
+          # Check that at least one of pypi-package or conda-package is true
+          if [ '${{ inputs.pypi-package }}' != 'true' ] && [ '${{ inputs.conda-package }}' != 'true' ]; then
+            echo "::error::At least one of 'pypi-package' or 'conda-package' must be true"
+            exit 1
+          fi
+
+      - name: Check pyproject.toml directory
+        id: check-pyproject-toml-dir
+        run: |
+          # Set the current repository root as the default pyproject_toml_dir value
+          if [ -z '${{ inputs.pyproject-toml-dir }}' ]; then
+            pyproject_toml_dir='.'
+            if [[ ! -f "$pyproject_toml_dir"/pyproject.toml ]]; then
+              echo "::error::No 'pyproject.toml' found in the repository top-level folder. To specify the directory of your 'pyproject.toml', please use the 'pyproject-toml-dir' input"
+              exit 1
+            fi
+          else
+            pyproject_toml_dir='${{ inputs.pyproject-toml-dir }}'
+            if [[ ! -d "$pyproject_toml_dir" ]]; then
+              echo "::error::Specified 'pyproject-toml-dir' directory '$pyproject_toml_dir' not found in the current repository"
+              exit 1
+            fi
+            if [[ ! -f "$pyproject_toml_dir"/pyproject.toml ]]; then
+              echo "::error::No 'pyproject.toml' found in the specified 'pyproject-toml-dir' directory '$pyproject_toml_dir'"
+              exit 1
+            fi
+          fi
+          echo "pyproject_toml_dir=$pyproject_toml_dir" >> $GITHUB_OUTPUT
+    
+      - name: Check PyPI token
+        run: |
+          # Check that 'secrets.PYPI_TOKEN' is not empty
+          if [ -z '${{ secrets.PYPI_TOKEN }}' ]; then
+              echo "::error::PYPI_TOKEN secret appears to be empty. Make sure to set a valid PYPI_TOKEN GitHub secret in the calling repository and call this workflow using \`secrets: inherit\`"
+              exit 1
+          fi
+      
+      - name: Check Anaconda token
+        run: |
+          # Check that 'secrets.ANACONDA_TOKEN' is not empty
+          if [ -z '${{ secrets.ANACONDA_TOKEN }}' ]; then
+              echo "::error::ANACONDA_TOKEN secret appears to be empty. Make sure to set a valid ANACONDA_TOKEN GitHub secret in the calling repository and call this workflow using \`secrets: inherit\`"
+              exit 1
+          fi
+
+      - name: Check Anaconda username
+        run: |
+          # Check that 'secrets.ANACONDA_USERNAME' is not empty
+          if [ -z '${{ secrets.ANACONDA_USERNAME }}' ]; then
+              echo "::error::ANACONDA_USERNAME secret appears to be empty. Make sure to set a valid ANACONDA_USERNAME GitHub secret in the calling repository and call this workflow using \`secrets: inherit\`"
+              exit 1
+          fi
+
+  build_tarball_and_python_wheel:
+    name: Build tarball and Python wheel
+    runs-on: ubuntu-latest
+    needs: inputs_sanity_check
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        
+      - name: Install build dependencies
+        run: python -m pip install build ${{ inputs.pypi-package && 'twine' || '' }}
+
+      - name: Build distributions
+        run: |
+          pyproject-build ${{ ! inputs.pypi-package && '--sdist' || '' }} \
+            --outdir '${{ env.PYTHON_ARTIFACT_DIR }}' \
+            '${{ needs.inputs_sanity_check.outputs.pyproject_toml_dir }}'
+          echo Built files:
+          ls -l '${{ env.PYTHON_ARTIFACT_DIR }}' | tail -n -1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PYTHON_ARTIFACT_NAME }}
+          path: ${{ env.PYTHON_ARTIFACT_DIR }}/*
+  
+  publish-pypi-package:
+    name: Publish package to PyPI
+    runs-on: ubuntu-latest
+    needs: build_tarball_and_python_wheel
+    if: ${{ inputs.pypi-package }}
+    steps:
+      - uses: actions/checkout@v5
+      
+      - name: Download artifact
+        id: download-artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ env.PYTHON_ARTIFACT_NAME }}
+          path: ${{ env.PYTHON_ARTIFACT_DIR }}
+    
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
+          packages-dir: ${{ env.PYTHON_ARTIFACT_DIR }}
+
+  publish-conda-package:
+    name: Publish package to Anaconda.org
+    runs-on: ubuntu-latest
+    needs: build_tarball_and_python_wheel
+    if: ${{ inputs.conda-package }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifact
+        id: download-artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ env.PYTHON_ARTIFACT_NAME }}
+          path: ${{ env.PYTHON_ARTIFACT_DIR }}
+    
+      - name: Set up micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: build-env
+          create-args: >-
+            conda-build
+            anaconda-client
+            versioneer
+            grayskull
+      
+      - name: Create recipe from tarball
+        id: create-recipe
+        run: |
+          # We create a recipe dir and cd into it, because there is no 'outdir' option or similar in grayskull
+          recipe_dir=${{ github.workspace }}/_recipe_dir
+          mkdir "$recipe_dir" && cd "$recipe_dir"
+          # Create conda recipe from the tarball
+          micromamba run -n build-env grayskull pypi ${{ env.PYTHON_ARTIFACT_DIR }}/*.tar.gz
+          # Find the directory containing meta.yaml.
+          meta_yaml_dir=$(find "$recipe_dir" -name meta.yaml -exec dirname {} \;)
+          echo "meta-yaml-dir=$meta_yaml_dir" >> $GITHUB_OUTPUT
+
+      - name: Publish package to Anaconda.org
+        id: publish-conda-package
+        uses: ACCESS-NRI/action-build-and-upload-conda-packages@v3.0.0
+        with:
+          meta_yaml_dir: ${{ steps.create-recipe.outputs.meta-yaml-dir }}
+          user: ${{ secrets.ANACONDA_USERNAME }}
+          token: ${{ secrets.ANACONDA_TOKEN }}
+    
+      - name: Upload conda artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.CONDA_ARTIFACT_NAME }}
+          path: ${{ steps.publish-conda-package.outputs.paths }}
+    
+  upload-artifact:
+    name: Upload artifact with tarball and built packages
+    runs-on: ubuntu-latest
+    needs: [publish-pypi-package, publish-conda-package]
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      artifact-name: ${{ steps.set-output-artifact-name.outputs.artifact-name }}
+    steps:
+      # To avoid downloading artifacts produced by previous steps, we download the desired artifacts separately 
+      - name: Download python artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ env.PYTHON_ARTIFACT_NAME }}
+          path: ${{ env.PYTHON_ARTIFACT_DIR }}
+      
+      - name: Download conda artifact
+        if: ${{ inputs.conda-package }}
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ env.CONDA_ARTIFACT_NAME }}
+          path: ${{ env.CONDA_ARTIFACT_DIR }}
+        
+      # To avoid having intermediary artifacts from previous steps
+      # we delete the python and conda artifacts
+      - name: Delete artifacts
+        run: |
+          for artifact_name in '${{ env.PYTHON_ARTIFACT_NAME }}' '${{ env.CONDA_ARTIFACT_NAME }}'; do
+            # Get the artifact ID
+            artifact_id=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
+                --jq ".artifacts[] | select(.name==\"$artifact_name\") | .id")
+            # Delete the artifact
+            if [ -n "$artifact_id" ]; then
+                gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$artifact_id &> /dev/null \
+                  && echo "Deleted artifact '$artifact_name'." \
+                  || echo "::warning::No permissions to delete artifact '$artifact_name'. Please run the workflow with \`permissions: actions: write\`"
+            else
+                echo "Artifact '$artifact_name' not found."
+            fi
+          done
+
+      - name: Create output artifact directory
+        run: |
+          mkdir -p ${{ env.ARTIFACT_DIR }}
+          mv ${{ env.PYTHON_ARTIFACT_DIR }}/* ${{ env.ARTIFACT_DIR }}
+          if [ '${{ inputs.conda-package }}' = 'true' ]; then
+            mv ${{ env.CONDA_ARTIFACT_DIR }}/* ${{ env.ARTIFACT_DIR }}
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACT_DIR }}/*
+    
+      - name: Set output artifact name
+        id: set-output-artifact-name
+        run: echo "artifact-name=${{ env.ARTIFACT_NAME }}" >> $GITHUB_OUTPUT
