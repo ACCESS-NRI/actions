@@ -196,7 +196,9 @@ jobs:
     name: Upload artifact with tarball and built packages
     runs-on: ubuntu-latest
     needs: [publish-pypi-package, publish-conda-package]
-    if: ${{ success() && contains(needs.*.result, 'success') }}
+    # Run job if any needed job succeded, even if others are skipped or cancelled. 
+    # Don't run if any needed job failed or no jobs succeded (all skipped or cancelled).
+    if: ${{ ! contains(needs.*.result, 'failure') && contains(needs.*.result, 'success') }}
     env:
       GH_TOKEN: ${{ github.token }}
     outputs:
