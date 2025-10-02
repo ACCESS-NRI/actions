@@ -69,6 +69,7 @@ jobs:
           echo "pyproject_toml_dir=$pyproject_toml_dir" >> $GITHUB_OUTPUT
     
       - name: Check PyPI token
+        if : ${{ inputs.pypi-package }} # Only if publishing to PyPI
         run: |
           # Check that 'secrets.PYPI_TOKEN' is not empty
           if [ -z '${{ secrets.PYPI_TOKEN }}' ]; then
@@ -77,6 +78,7 @@ jobs:
           fi
       
       - name: Check Anaconda token
+        if : ${{ inputs.conda-package }} # Only if publishing to Anaconda.org
         run: |
           # Check that 'secrets.ANACONDA_TOKEN' is not empty
           if [ -z '${{ secrets.ANACONDA_TOKEN }}' ]; then
@@ -85,6 +87,7 @@ jobs:
           fi
 
       - name: Check Anaconda username
+        if : ${{ inputs.conda-package }} # Only if publishing to Anaconda.org
         run: |
           # Check that 'secrets.ANACONDA_USERNAME' is not empty
           if [ -z '${{ secrets.ANACONDA_USERNAME }}' ]; then
