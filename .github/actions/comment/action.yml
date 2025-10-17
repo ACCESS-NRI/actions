@@ -249,4 +249,7 @@ runs:
           -H 'X-GitHub-Api-Version: 2022-11-28' \
           repos/${{env.REPO}}/issues${number_string}/comments${id_string} \
           -f body="$(< ${{env.MSG_FILE}})${{env.LABEL_STRING}}")
-        echo "comment-url=$(jq '.html_url' <<< $output)" >> $GITHUB_OUTPUT
+        # Get comment URL from output and set it as action output
+        comment-url=$(jq '.html_url' <<< $output)
+        echo "Comment URL: $comment-url"
+        echo "comment-url=$comment-url" >> $GITHUB_OUTPUT
