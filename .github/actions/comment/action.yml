@@ -186,16 +186,19 @@ runs:
         else
           # if comment-id is not provided, get the comment id from the label (if found)
           echo "Running command: gh api -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' repos/${{env.REPO}}/issues/${{env.NUMBER}}/comments --jq '.[] | select(.body | contains(\"${{env.LABEL_STRING}}\")) | .id'"
-          id=$(gh api \
+          ids=$(gh api \
           -H 'Accept: application/vnd.github+json' \
           -H 'X-GitHub-Api-Version: 2022-11-28' \
           repos/${{env.REPO}}/issues/${{env.NUMBER}}/comments \
-          --jq '.[] | select(.body | contains("${{env.LABEL_STRING}}")) | .id')
-          comment_id=$id
+          --jq '[.[] | select(.body | contains("${{env.LABEL_STRING}}")) | {id, updated_at}] | sort_by(.updated_at)')
+          # If multiple ids are found with the same label, raise a warning
+          [[ $(jq -r 'length' <<< "$ids") > 1 ]] && echo "::warning::Multiple comments found with the same label. The most recently updated comment will be used."
+          # Get the last updated comment
+          comment_id=$(jq -r 'last.id' <<< "$ids")
         fi
         # Log comment id and add it to GitHub outputs
         echo "Comment ID: ${comment_id}"
-        # echo "comment_id=test" >> $GITHUB_OUTPUT
+        echo "comment_id=$comment_id" >> $GITHUB_OUTPUT
 
     - name: Delete comment
       if: ${{ inputs.delete == 'true' }}
