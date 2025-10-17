@@ -79,9 +79,9 @@ runs:
       run: |
         # Check MESSAGE
         msg_file=$(mktemp)
-        cat > "$msg_file" << 'EOF'
+        cat > "$msg_file" << '_UNUSUAL_EOF'
         ${{ inputs.message }}
-        EOF
+        _UNUSUAL_EOF
         if [[ -z "$(cat $msg_file)" && ${{ inputs.delete }} != 'true' ]]; then
           echo "::error::Please provide a message for the comment."
           exit 1
