@@ -195,7 +195,7 @@ runs:
         fi
         # Log comment id and add it to GitHub outputs
         echo "Comment ID: ${comment_id}"
-        # echo "comment_id=$comment_id" >> $GITHUB_OUTPUT
+        # echo "comment_id=test" >> $GITHUB_OUTPUT
 
     - name: Delete comment
       if: ${{ inputs.delete == 'true' }}
@@ -250,6 +250,6 @@ runs:
           repos/${{env.REPO}}/issues${number_string}/comments${id_string} \
           -f body="$(< ${{env.MSG_FILE}})${{env.LABEL_STRING}}")
         # Get comment URL from output and set it as action output
-        comment-url=$(jq '.html_url' <<< $output)
-        echo "Comment URL: $comment-url"
-        echo "comment-url=$comment-url" >> $GITHUB_OUTPUT
+        comment_url=$(jq '.html_url' <<< $output)
+        echo "Comment URL: $comment_url"
+        echo "comment-url=$comment_url" >> $GITHUB_OUTPUT
