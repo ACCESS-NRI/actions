@@ -120,11 +120,10 @@ jobs:
           name: ${{ env.PYTHON_ARTIFACT_NAME }}
           path: ${{ env.PYTHON_ARTIFACT_DIR }}/*
   
-  publish-pypi-package:
+  publish-package:
     name: Publish package to PyPI
     runs-on: ubuntu-latest
     needs: build_tarball_and_python_wheel
-    if: ${{ inputs.pypi-package }}
     steps:
       - uses: actions/checkout@v5
       
@@ -137,27 +136,14 @@ jobs:
     
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        if: ${{ inputs.pypi-package }}
         with:
           password: ${{ secrets.PYPI_TOKEN }}
           packages-dir: ${{ env.PYTHON_ARTIFACT_DIR }}
-
-  publish-conda-package:
-    name: Publish package to Anaconda.org
-    runs-on: ubuntu-latest
-    needs: build_tarball_and_python_wheel
-    if: ${{ inputs.conda-package }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download artifact
-        id: download-artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: ${{ env.PYTHON_ARTIFACT_NAME }}
-          path: ${{ env.PYTHON_ARTIFACT_DIR }}
-    
+  
       - name: Set up micromamba
         uses: mamba-org/setup-micromamba@v2
+        if: ${{ inputs.conda-package }}
         with:
           environment-name: build-env
           create-args: >-
@@ -168,6 +154,7 @@ jobs:
       
       - name: Create recipe from tarball
         id: create-recipe
+        if: ${{ inputs.conda-package }}
         run: |
           # We create a recipe dir and cd into it, because there is no 'outdir' option or similar in grayskull
           recipe_dir=${{ github.workspace }}/_recipe_dir
@@ -180,6 +167,7 @@ jobs:
 
       - name: Publish package to Anaconda.org
         id: publish-conda-package
+        if: ${{ inputs.conda-package }}
         uses: ACCESS-NRI/action-build-and-upload-conda-packages@v3.0.0
         with:
           meta_yaml_dir: ${{ steps.create-recipe.outputs.meta-yaml-dir }}
@@ -195,7 +183,7 @@ jobs:
   upload-artifact:
     name: Upload artifact with tarball and built packages
     runs-on: ubuntu-latest
-    needs: [publish-pypi-package, publish-conda-package]
+    needs: [publish-package]
     # Run job if any needed job succeded, even if others are skipped or cancelled. 
     # Don't run if any needed job failed or no jobs succeded (all skipped or cancelled).
     if: ${{ always() && ! contains(needs.*.result, 'failure') && contains(needs.*.result, 'success') }}
