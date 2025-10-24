@@ -124,6 +124,7 @@ jobs:
     name: Publish package to PyPI
     runs-on: ubuntu-latest
     needs: build_tarball_and_python_wheel
+    environment: 'python-publish'
     steps:
       - uses: actions/checkout@v5
       
