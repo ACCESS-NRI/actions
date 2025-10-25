@@ -194,7 +194,7 @@ runs:
           # If multiple ids are found with the same label, raise a warning
           [[ $(jq -r 'length' <<< "$ids") > 1 ]] && echo "::warning::Multiple comments found with the same label. The most recently updated comment will be used."
           # Get the last updated comment
-          comment_id=$(jq -r 'last.id' <<< "$ids")
+          comment_id=$(jq -r 'if length == 0 then "" else last.id end' <<< "$ids")
         fi
         # Log comment id and add it to GitHub outputs
         echo "Comment ID: ${comment_id}"
