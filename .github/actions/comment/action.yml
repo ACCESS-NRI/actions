@@ -71,19 +71,29 @@ runs:
         fetch-depth: 0
 
     - name: Inputs sanity check
-      shell: bash +H {0}
       # We use the +H option to prevent history expansion, so the '!' character can be printed out without 
       # problems.
+      shell: bash +H {0}
+      id: inputs-check
+      # We place the message to a temporary file to avoid issues with special characters (e.g. new lines, quotes, etc.)
       run: |
         # Check MESSAGE
-        if [[ -z "${{ inputs.message }}" && ${{ inputs.delete }} != 'true' ]]; then
+        msg_file=$(mktemp)
+        cat > "$msg_file" << '_UNUSUAL_EOF'
+        ${{ inputs.message }}
+        _UNUSUAL_EOF
+        if [[ -z "$(cat $msg_file)" && ${{ inputs.delete }} != 'true' ]]; then
           echo "::error::Please provide a message for the comment."
           exit 1
         fi
+        echo "=== START OF MESSAGE ==="
+        cat $msg_file
+        echo "=== END OF MESSAGE ==="
+        echo "msg_file=$msg_file" >> $GITHUB_OUTPUT
 
         # Parse URL
-        if [[ -n "${{ inputs.url }}" ]]; then
-          url= xargs <<< "${{ inputs.url }}" # Remove leading/trailing whitespaces
+        if [[ -n '${{ inputs.url }}' ]]; then
+          url=$(xargs <<< '${{ inputs.url }}') # Remove leading/trailing whitespaces
           # Regex for the url in an expanded form
           regex='^'                             # Beginning of string anchor
           regex+='https://github\.com/'         # Github URL
@@ -95,7 +105,8 @@ runs:
           regex+='([0-9]+)'                     # Match one or more digits - Capture group 4 (the NUMBER)
           regex+='(#issuecomment-([0-9]+))?'    # Optionally match "#issuecomment-" and one or more digits - Capture groups 5 (not used) and 6 (the COMMENT-ID)
           regex+='$'                            # End of string anchor
-          if [[ "$1" =~ $regex ]]; then
+          echo "Url regex: $regex"
+          if [[ "$url" =~ $regex ]]; then
             OWNER=${BASH_REMATCH[1]}
             REPOSITORY=${BASH_REMATCH[2]}
             NUMBER=${BASH_REMATCH[4]}
@@ -105,6 +116,7 @@ runs:
             exit 1
           fi
         fi
+        echo "COMMENT_ID=${COMMENT_ID}" >> $GITHUB_ENV
 
         # Set NUMBER
         if [[ -n "${{ inputs.number }}" && -n "${{ inputs.url }}" ]]; then # If both number and url are provided
@@ -113,18 +125,21 @@ runs:
         fi
         if [[ -z "${{ inputs.number }}" ]]; then # If number is not provided
           if [[ -n "$NUMBER" ]]; then # If url is provided
-            echo "NUMBER=$NUMBER" >> $GITHUB_ENV
+            number=$NUMBER
           elif [[ -n "${{ github.event.issue }}" ]]; then # If in an issue event
-            echo "NUMBER=${{ github.event.issue.number }}" >> $GITHUB_ENV
+            number=${{ github.event.issue.number }}
           elif [[ -n "${{ github.event.pull_request }}" ]]; then # If in a pull_request event
-            echo "NUMBER=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+            number=${{ github.event.pull_request.number }}
           else
             echo "::error::Couldn't infer PR/Issue number from the event payload, please enter PR/Issue number as an input."
             exit 1
           fi
         else
-          echo "NUMBER=${{ inputs.number }}" >> $GITHUB_ENV
+          number=${{ inputs.number }}
         fi
+        # Log number and add it to GitHub outputs
+        echo "Issue/PR number: ${number}"
+        echo "number=$number" >> $GITHUB_OUTPUT
 
         # Set REPO
         if [[ -n "${{ inputs.repo }}" && -n "${{ inputs.url }}" ]]; then # If both repo and url are provided
@@ -132,73 +147,112 @@ runs:
             exit 1
         fi
         REPO_INPUT=${{ inputs.repo }}
-        # If REPOSITORY is set (url is provided), set REPO_URL to $REPOSITORY/$OWNER
-        REPO_URL="${REPOSITORY:+$REPOSITORY/$OWNER}"
+        # If REPOSITORY is set (url is provided), set REPO_URL to $OWNER/REPOSITORY
+        REPO_URL="${REPOSITORY:+$OWNER/$REPOSITORY}"
         # If REPO_INPUT is set, use it. Otherwise, use REPO_URL. If REPO_URL is not set, use the default github.repository.
-        echo "REPO=${REPO_INPUT:-${REPO_URL:-${{github.repository}}}}" >> $GITHUB_ENV 
+        repo=${REPO_INPUT:-${REPO_URL:-${{github.repository}}}}
+        # Log repo and add it to GitHub outputs
+        echo "Repository: ${repo}"
+        echo "repo=$repo" >> $GITHUB_OUTPUT
 
         # Set LABEL_STRING
         label=${{ inputs.label }}
         label=${label:-$(TZ=Australia/Canberra date +"%Y-%m-%dT%H:%M:%S")}
-        echo "LABEL_STRING=<!-- comment-action @@@${label}@@@ -->" >> $GITHUB_ENV
-        
+        label_string="<!-- comment-action @@@${label}@@@ -->"
+        # Log label and add it to GitHub outputs
+        echo "Label string: ${label_string}"
+        echo "label_string=$label_string" >> $GITHUB_OUTPUT
+
         # Set GH_TOKEN
         token="${{ inputs.token }}"
         echo "GH_TOKEN=${token:-${{github.token}}}" >> $GITHUB_ENV
 
     - name: Get comment id
+      id: get-comment-id
       shell: bash
+      env:
+        NUMBER: ${{ steps.inputs-check.outputs.number }}
+        REPO: ${{ steps.inputs-check.outputs.repo }}
+        LABEL_STRING: ${{ steps.inputs-check.outputs.label_string }}
       run: |
         if [[ -n "${{ inputs.comment-id }}" ]]; then
           if [[ -n "$COMMENT_ID" ]]; then # If both comment-id and url (with COMMENT_ID portion) are provided
             echo "::error::Cannot use 'comment-id' and 'url' (containing the COMMENT_ID portion) together. Please provide only one of them."
             exit 1
           fi
-          echo "COMMENT_ID=${{ inputs.comment-id }}" >> $GITHUB_ENV
+          comment_id=${{ inputs.comment-id }}
         elif [[ -n "$COMMENT_ID" ]]; then # If url is provided
-          echo "COMMENT_ID=$COMMENT_ID" >> $GITHUB_ENV
+          comment_id=$COMMENT_ID
         else
           # if comment-id is not provided, get the comment id from the label (if found)
-          id=$(gh api \
-          -H "Accept: application/vnd.github+json" \
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          repos/$REPO/issues/$NUMBER/comments \
-          --jq ".[] | select(.body | contains(\"${LABEL_STRING}\")) | .id")
-          echo "COMMENT_ID=$id" >> $GITHUB_ENV
+          echo "Running command: gh api -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' repos/${{env.REPO}}/issues/${{env.NUMBER}}/comments --jq '.[] | select(.body | contains(\"${{env.LABEL_STRING}}\")) | .id'"
+          ids=$(gh api \
+          -H 'Accept: application/vnd.github+json' \
+          -H 'X-GitHub-Api-Version: 2022-11-28' \
+          repos/${{env.REPO}}/issues/${{env.NUMBER}}/comments \
+          --jq '[.[] | select(.body | contains("${{env.LABEL_STRING}}")) | {id, updated_at}] | sort_by(.updated_at)')
+          # If multiple ids are found with the same label, raise a warning
+          [[ $(jq -r 'length' <<< "$ids") > 1 ]] && echo "::warning::Multiple comments found with the same label. The most recently updated comment will be used."
+          # Get the last updated comment
+          comment_id=$(jq -r 'last.id' <<< "$ids")
         fi
+        # Log comment id and add it to GitHub outputs
+        echo "Comment ID: ${comment_id}"
+        echo "comment_id=$comment_id" >> $GITHUB_OUTPUT
 
     - name: Delete comment
       if: ${{ inputs.delete == 'true' }}
+      env:
+        REPO: ${{ steps.inputs-check.outputs.repo }}
+        COMMENT_ID: ${{ steps.get-comment-id.outputs.comment_id }}
       shell: bash +H {0}
       run: |
-        if [[ -z "$COMMENT_ID" ]]; then
+        if [[ -z '${{env.COMMENT_ID}}' ]]; then
           echo "::error::Found no comment to delete. Please check that the provided label exists."
           exit 1
         fi
-        output=$(gh api --method DELETE \
-        -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
-        repos/$REPO/issues/comments/$COMMENT_ID)
+        echo "Running command: gh api --method DELETE -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' repos/${{env.REPO}}/issues/comments/${{env.COMMENT_ID}}"
+        gh api \
+          --method DELETE \
+          -H 'Accept: application/vnd.github+json' \
+          -H 'X-GitHub-Api-Version: 2022-11-28' \
+          repos/${{env.REPO}}/issues/comments/${{env.COMMENT_ID}}
     
     - name: Add comment
       if: ${{ inputs.delete == 'false' }}
       id: comment
       shell: bash -e +H {0}
+      # We pass the message as an environment variable to avoid issues with bash 
+      # special characters (e.g. new lines, quotes, etc.).
+      env:
+        MSG_FILE: ${{ steps.inputs-check.outputs.msg_file }}
+        NUMBER: ${{ steps.inputs-check.outputs.number }}
+        REPO: ${{ steps.inputs-check.outputs.repo }}
+        LABEL_STRING: ${{ steps.inputs-check.outputs.label_string }}
+        COMMENT_ID: ${{ steps.get-comment-id.outputs.comment_id }}
+      # We use a heredoc for the message to avoid issues with special characters (e.g. new lines, quotes, etc.).
       run: |
-        if [[ -n "$COMMENT_ID" ]]; then
+        if [[ -n '${{env.COMMENT_ID}}' ]]; then
           # Edit comment
-          id_string="/${COMMENT_ID}"
+          id_string='/${{env.COMMENT_ID}}'
           method=PATCH
           number_string=""
-          msg="Edited comment $COMMENT_ID."
         else
           # Add comment
           id_string=""
           method=POST
-          number_string="/${NUMBER}"
-          msg="Added comment."
+          number_string='/${{env.NUMBER}}'
         fi
-        output=$(gh api --method $method \
-        -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
-        repos/$REPO/issues${number_string}/comments${id_string} -f body='${{inputs.message}}'"$LABEL_STRING")
-        echo "$msg"
-        echo "comment-url=$(jq '.html_url' <<< $output)" >> $GITHUB_OUTPUT
+        echo -n "Running command: gh api --method $method -H 'Accept: application/vnd.github+json' "
+        echo -n "-H 'X-GitHub-Api-Version: 2022-11-28' repos/${{env.REPO}}/issues${number_string}/comments${id_string} "
+        echo "-f body=\"$(< ${{env.MSG_FILE}})${{env.LABEL_STRING}}\""
+        output=$(gh api \
+          --method $method \
+          -H 'Accept: application/vnd.github+json' \
+          -H 'X-GitHub-Api-Version: 2022-11-28' \
+          repos/${{env.REPO}}/issues${number_string}/comments${id_string} \
+          -f body="$(< ${{env.MSG_FILE}})${{env.LABEL_STRING}}")
+        # Get comment URL from output and set it as action output
+        comment_url=$(jq '.html_url' <<< $output)
+        echo "Comment URL: $comment_url"
+        echo "comment-url=$comment_url" >> $GITHUB_OUTPUT

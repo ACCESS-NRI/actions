@@ -4,12 +4,14 @@ Custom GitHub Actions and Workflows for use across the ACCESS-NRI.
 
 ## Actions
 
-* `setup-ssh`: Sets up private keys and ~/.ssh/known_hosts: [setup-ssh README.md](.github/actions/setup-ssh/README.md).
-* `docker-build-push`: Builds and pushes a docker image: [docker-build-push README.md](.github/actions/docker-build-push/README.md).
-* `bump-version`: Bumps a version string given a versioning scheme: [bump-version README.md](.github/actions/bump-version/README.md).
-* `react-to-comment`: Lets `github-actions[bot]` react to a comment. Usually useful to let users know there is some action in progress: [react-to-comment](.github/actions/react-to-comment/README.md).
-* `pr-comment`: Convenience action for letting `github-actions[bot]` comment on a given PR: [pr-comment](.github/actions/pr-comment/README.md).
-* `commenter-permissions-check`: Determine whether a commenter on a PR has write permissions on the repository: [commenter-permissions README.md](.github/actions/commenter-permission-check/README.md)
+* [setup-ssh](.github/actions/setup-ssh/README.md): Sets up private keys and `~/.ssh/known_hosts`.
+* [docker-build-push](.github/actions/docker-build-push/README.md): Builds and pushes a Docker image.
+* [bump-version](.github/actions/bump-version/README.md): Bumps a version string given a versioning scheme.
+* [react-to-comment](.github/actions/react-to-comment/README.md): Lets `github-actions[bot]` react to a comment. Usually useful to let users know there is some action in progress.
+* [pr-comment](.github/actions/pr-comment/README.md): _Outdated action. Please use the updated [comment](.github/actions/comment/README.md) action instead_. Convenience action for letting `github-actions[bot]` comment on a given PR.
+* [commenter-permissions README.md](.github/actions/commenter-permission-check/README.md): Determine whether a commenter on a PR has write permissions on the repository.
+* [comment](.github/actions/comment/README.md): Add, modify or delete a comment on a given issue or PR.
+* [cache-svn-auth](.github/actions/cache-svn-auth/README.md): Cache Subversion (SVN)'s authentication password.
 
 ## Workflows
 
