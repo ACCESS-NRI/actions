@@ -12,6 +12,7 @@ Custom GitHub Actions and Workflows for use across the ACCESS-NRI.
 * [commenter-permissions README.md](.github/actions/commenter-permission-check/README.md): Determine whether a commenter on a PR has write permissions on the repository.
 * [comment](.github/actions/comment/README.md): Add, modify or delete a comment on a given issue or PR.
 * [cache-svn-auth](.github/actions/cache-svn-auth/README.md): Cache Subversion (SVN)'s authentication password.
+* [get-git-ref-info](.github/actions/get-git-ref-info/README.md): Determine if a given git ref is a branch, tag or SHA, if it exists.
 
 ## Workflows
 

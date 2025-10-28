@@ -1,0 +1,53 @@
+name: Get git ref info
+description: Action that retrieves information about a git reference
+inputs:
+  repository:
+    required: true
+    description: The repository to get the git ref info from, in the format 'owner/repo'.
+  ref:
+    required: true
+    description: The git reference (branch, tag, or commit SHA) to retrieve information about
+  token:
+    required: false
+    description: |
+      The GitHub token to use for authentication when accessing the repository.
+      Defaults to github.token.
+outputs:
+  ref-type:
+    description: The type of the git reference (branch, tag, or commit)
+    value: ${{ steps.ref-info.outputs.ref-type }}
+  sha:
+    description: The commit SHA that the git reference points to
+    value: ${{ steps.ref-info.outputs.sha }}
+runs:
+  using: composite
+  steps:
+    - name: Checkout ${{ inputs.repository }}
+      uses: actions/checkout@v5
+      with:
+        repository: ${{ inputs.repository }}
+        fetch-depth: 0
+        fetch-tags: true
+        token: ${{ inputs.token || github.token }}
+
+    - name: Get Git Ref Info
+      id: ref-info
+      shell: bash
+      # Determine if the ref is a branch, tag, or commit SHA, and get the SHA for the given ref
+      run: |
+        if git show-ref --verify --quiet "refs/heads/${{ inputs.ref }}"; then
+          echo "ref-type=branch" >> $GITHUB_OUTPUT
+          echo "sha=$(git rev-parse "refs/heads/${{ inputs.ref }}")" >> $GITHUB_OUTPUT
+
+        elif git show-ref --verify --quiet "refs/tags/${{ inputs.ref }}"; then
+          echo "ref-type=tag" >> $GITHUB_OUTPUT
+          echo "sha=$(git rev-parse "refs/tags/${{ inputs.ref }}")" >> $GITHUB_OUTPUT
+
+        elif git cat-file -e "${{ inputs.ref }}^{commit}"; then
+          echo "ref-type=commit" >> $GITHUB_OUTPUT
+          echo "sha=$(git rev-parse "${{ inputs.ref }}")" >> $GITHUB_OUTPUT
+
+        else
+          echo "::error::The specified ref '${{ inputs.ref }}' does not exist in the repository '${{ inputs.repository }}'."
+          exit 1
+        fi
