@@ -35,6 +35,13 @@ runs:
       shell: bash
       # Determine if the ref is a branch, tag, or commit SHA, and get the SHA for the given ref
       run: |
+        # Check if the ref exists as both a branch and a tag, in which case we error out
+        if git show-ref --verify --quiet 'refs/heads/${{ inputs.ref }}' && git show-ref --verify --quiet 'refs/tags/${{ inputs.ref }}'; then
+          echo "::error::The specified ref '${{ inputs.ref }}' exists as both a branch and a tag in the repository '${{ inputs.repository }}'. Please specify a unique ref."
+          exit 1
+        fi
+
+        # Check if the ref is a branch, tag, or commit
         if git show-ref --verify --quiet 'refs/heads/${{ inputs.ref }}'; then
           echo "ref-type=branch" >> $GITHUB_OUTPUT
           echo "sha=$(git rev-parse "refs/heads/${{ inputs.ref }}")" >> $GITHUB_OUTPUT
