@@ -1,8 +1,8 @@
-# PR Comment Action
+# Get git ref info Action
 
 This action is a shorthand way to determine whether a given git ref is a branch, tag or commit.
 
-If the specified ref doesn't exist, this action will exit.
+If the specified ref doesn't exist, this action will fail with an error.
 
 ## Inputs
 
@@ -30,7 +30,7 @@ jobs:
      ref: main
     steps:
     - id: resolve-ref
-      uses: access-nri/actions/.github/actions/pr-comment@main
+      uses: access-nri/actions/.github/actions/get-git-ref-info@main
       with:
         repository: ACCESS-NRI/actions@main
         ref: ${{ env.ref }}
