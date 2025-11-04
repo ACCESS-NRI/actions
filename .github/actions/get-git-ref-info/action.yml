@@ -2,8 +2,15 @@ name: Get git ref info
 description: Action that retrieves information about a git reference
 inputs:
   repository:
-    required: true
-    description: The repository to get the git ref info from, in the format 'owner/repo'.
+    required: false
+    description: |
+      The repository to checkout and get the git ref info from, in the format 'owner/repo'.
+      Mutually exclusive with inputs.repository-path.
+  repository-path:
+    required: false
+    description: |
+      The path to a local git repository to get the git ref info from.
+      Mutually exclusive with inputs.repository.
   ref:
     required: true
     description: The git reference (branch, tag, or commit SHA) to retrieve information about
@@ -22,13 +29,41 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        if [[ -n "${{ inputs.repository }}" && -n "${{ inputs.repository-path }}" ]]; then
+          echo "::error::Inputs 'repository' and 'repository-path' are mutually exclusive. Please specify only one."
+          exit 1
+        fi
+
+        if [[ -z "${{ inputs.repository }}" && -z "${{ inputs.repository-path }}" ]]; then
+          echo "::error::One of the inputs 'repository' or 'repository-path' must be specified."
+          exit 1
+        fi
+
     - name: Checkout ${{ inputs.repository }}
+      if: inputs.repository != ''
       uses: actions/checkout@v5
       with:
         repository: ${{ inputs.repository }}
         fetch-depth: 0
         fetch-tags: true
         token: ${{ inputs.token || github.token }}
+        path: get-git-ref-info-checkout
+
+    - name: Determine repository path
+      id: repo
+      shell: bash
+      run: |
+        if [[ -n "${{ inputs.repository-path }}" ]]; then
+          repo_path=${{ inputs.repository-path }}
+        else
+          repo_path=get-git-ref-info-checkout
+        fi
+
+        echo "Determined repo path: $repo_path"
+        echo "path=$repo_path" >> $GITHUB_OUTPUT
 
     - name: Get Git Ref Info
       id: ref-info
@@ -36,25 +71,25 @@ runs:
       # Determine if the ref is a branch, tag, or commit SHA, and get the SHA for the given ref
       run: |
         # Check if the ref exists as both a branch and a tag, in which case we error out
-        if git show-ref --verify --quiet 'refs/heads/${{ inputs.ref }}' && git show-ref --verify --quiet 'refs/tags/${{ inputs.ref }}'; then
-          echo "::error::The specified ref '${{ inputs.ref }}' exists as both a branch and a tag in the repository '${{ inputs.repository }}'. Please specify a unique ref."
+        if git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/heads/${{ inputs.ref }}' && git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/tags/${{ inputs.ref }}'; then
+          echo "::error::The specified ref '${{ inputs.ref }}' exists as both a branch and a tag in the repository. Please specify a unique ref."
           exit 1
         fi
 
         # Check if the ref is a branch, tag, or commit
-        if git show-ref --verify --quiet 'refs/heads/${{ inputs.ref }}'; then
+        if git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/heads/${{ inputs.ref }}'; then
           echo "ref-type=branch" >> $GITHUB_OUTPUT
-          echo "sha=$(git rev-parse "refs/heads/${{ inputs.ref }}")" >> $GITHUB_OUTPUT
+          echo "sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse "refs/heads/${{ inputs.ref }}")" >> $GITHUB_OUTPUT
 
-        elif git show-ref --verify --quiet 'refs/tags/${{ inputs.ref }}'; then
+        elif git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/tags/${{ inputs.ref }}'; then
           echo "ref-type=tag" >> $GITHUB_OUTPUT
-          echo "sha=$(git rev-parse 'refs/tags/${{ inputs.ref }}')" >> $GITHUB_OUTPUT
+          echo "sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse 'refs/tags/${{ inputs.ref }}')" >> $GITHUB_OUTPUT
 
-        elif git cat-file -e '${{ inputs.ref }}^{commit}'; then
+        elif git -C ${{ steps.repo.outputs.path }} cat-file -e '${{ inputs.ref }}^{commit}'; then
           echo "ref-type=commit" >> $GITHUB_OUTPUT
-          echo "sha=$(git rev-parse '${{ inputs.ref }}')" >> $GITHUB_OUTPUT
+          echo "sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse '${{ inputs.ref }}')" >> $GITHUB_OUTPUT
 
         else
-          echo "::error::The specified ref '${{ inputs.ref }}' does not exist in the repository '${{ inputs.repository }}'."
+          echo "::error::The specified ref '${{ inputs.ref }}' does not exist in the repository."
           exit 1
         fi
