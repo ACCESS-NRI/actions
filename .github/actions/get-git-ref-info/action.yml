@@ -9,7 +9,7 @@ inputs:
   repository-path:
     required: false
     description: |
-      The path to a local git repository to get the git ref info from.
+      The path to a full-history, local git repository to get the git ref info from.
       Mutually exclusive with inputs.repository.
   ref:
     required: true
