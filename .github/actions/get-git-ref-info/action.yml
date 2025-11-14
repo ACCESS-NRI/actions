@@ -70,13 +70,14 @@ runs:
       shell: bash
       # Determine if the ref is a branch, tag, or commit SHA, and get the SHA for the given ref
       run: |
+        set +e
         # Store sha value if ref is a branch
         branch_sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse --verify 'refs/remotes/origin/${{ inputs.ref }}' 2> /dev/null)
         # Store sha value if ref is a tag
         tag_sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse --verify 'refs/tags/${{ inputs.ref }}^{}' 2> /dev/null)
         # Store sha value if ref is a commit
         commit_sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse --verify '${{ inputs.ref }}^{commit}' 2> /dev/null)
-
+        set -e
         # Performing the checks
         if [ -n "$branch_sha" ] && [ -n "$tag_sha" ]
         then # If ref is both a branch and a tag, an error is thrown
