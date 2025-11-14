@@ -70,31 +70,27 @@ runs:
       shell: bash
       # Determine if the ref is a branch, tag, or commit SHA, and get the SHA for the given ref
       run: |
-        # Check if the ref exists as both a branch (including local and remote branches) and a tag, in which case we error out
-        # Branches that are fetched but not checked out are not in refs/heads/, so we also check remote branches via ls-remote
-        if git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/heads/${{ inputs.ref }}' || \
-           git -C ${{ steps.repo.outputs.path }} ls-remote --exit-code --heads origin ${{ inputs.ref }} > /dev/null && \
-           git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/tags/${{ inputs.ref }}'
-        then
+        # Store sha value if ref is a branch
+        branch_sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse --verify 'refs/remotes/origin/${{ inputs.ref }}' 2> /dev/null)
+        # Store sha value if ref is a tag
+        tag_sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse --verify 'refs/tags/${{ inputs.ref }}' 2> /dev/null)
+        # Store sha value if ref is a commit
+        commit_sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse --verify '${{ inputs.ref }}^{commit}' 2> /dev/null)
+
+        # Performing the checks
+        if [ -n "$branch_sha" ] && [ -n "$tag_sha" ]
+        then # If ref is both a branch and a tag, an error is thrown
           echo "::error::The specified ref '${{ inputs.ref }}' exists as both a branch and a tag in the repository. Please specify a unique ref."
           exit 1
-        fi
-
-        # Check if the ref is a branch (local or remote), tag, or commit
-        if git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/heads/${{ inputs.ref }}' || \
-           git -C ${{ steps.repo.outputs.path }} ls-remote --exit-code --heads origin ${{ inputs.ref }} > /dev/null
-        then
+        elif [ -n "$branch_sha" ]; then # ref is a branch
           echo "ref-type=branch" >> $GITHUB_OUTPUT
-          echo "sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse "refs/remotes/origin/${{ inputs.ref }}")" >> $GITHUB_OUTPUT
-
-        elif git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/tags/${{ inputs.ref }}'; then
+          echo "sha=$branch_sha" >> $GITHUB_OUTPUT
+        elif [ -n "$tag_sha" ]; then # ref is a tag
           echo "ref-type=tag" >> $GITHUB_OUTPUT
-          echo "sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse 'refs/tags/${{ inputs.ref }}')" >> $GITHUB_OUTPUT
-
-        elif git -C ${{ steps.repo.outputs.path }} cat-file -e '${{ inputs.ref }}^{commit}'; then
+          echo "sha=$tag_sha" >> $GITHUB_OUTPUT
+        elif [ -n "$commit_sha" ]; then # ref is a commit
           echo "ref-type=commit" >> $GITHUB_OUTPUT
-          echo "sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse '${{ inputs.ref }}')" >> $GITHUB_OUTPUT
-
+          echo "sha=$commit_sha" >> $GITHUB_OUTPUT
         else
           echo "::error::The specified ref '${{ inputs.ref }}' does not exist in the repository."
           exit 1
