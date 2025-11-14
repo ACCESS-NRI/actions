@@ -70,16 +70,22 @@ runs:
       shell: bash
       # Determine if the ref is a branch, tag, or commit SHA, and get the SHA for the given ref
       run: |
-        # Check if the ref exists as both a branch and a tag, in which case we error out
-        if git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/heads/${{ inputs.ref }}' && git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/tags/${{ inputs.ref }}'; then
+        # Check if the ref exists as both a branch (including local and remote branches) and a tag, in which case we error out
+        # Branches that are fetched but not checked out are not in refs/heads/, so we also check remote branches via ls-remote
+        if git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/heads/${{ inputs.ref }}' || \
+           git -C ${{ steps.repo.outputs.path }} ls-remote --exit-code --heads origin ${{ inputs.ref }} > /dev/null && \
+           git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/tags/${{ inputs.ref }}'
+        then
           echo "::error::The specified ref '${{ inputs.ref }}' exists as both a branch and a tag in the repository. Please specify a unique ref."
           exit 1
         fi
 
-        # Check if the ref is a branch, tag, or commit
-        if git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/heads/${{ inputs.ref }}'; then
+        # Check if the ref is a branch (local or remote), tag, or commit
+        if git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/heads/${{ inputs.ref }}' || \
+           git -C ${{ steps.repo.outputs.path }} ls-remote --exit-code --heads origin ${{ inputs.ref }} > /dev/null
+        then
           echo "ref-type=branch" >> $GITHUB_OUTPUT
-          echo "sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse "refs/heads/${{ inputs.ref }}")" >> $GITHUB_OUTPUT
+          echo "sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse "refs/remotes/origin/${{ inputs.ref }}")" >> $GITHUB_OUTPUT
 
         elif git -C ${{ steps.repo.outputs.path }} show-ref --verify --quiet 'refs/tags/${{ inputs.ref }}'; then
           echo "ref-type=tag" >> $GITHUB_OUTPUT
