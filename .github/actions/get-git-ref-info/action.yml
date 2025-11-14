@@ -73,7 +73,7 @@ runs:
         # Store sha value if ref is a branch
         branch_sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse --verify 'refs/remotes/origin/${{ inputs.ref }}' 2> /dev/null)
         # Store sha value if ref is a tag
-        tag_sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse --verify 'refs/tags/${{ inputs.ref }}' 2> /dev/null)
+        tag_sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse --verify 'refs/tags/${{ inputs.ref }}^{}' 2> /dev/null)
         # Store sha value if ref is a commit
         commit_sha=$(git -C ${{ steps.repo.outputs.path }} rev-parse --verify '${{ inputs.ref }}^{commit}' 2> /dev/null)
 
