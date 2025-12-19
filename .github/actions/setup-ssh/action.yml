@@ -2,7 +2,7 @@ name: Setup SSH
 description: Action to setup SSH connection and update known_hosts at the job level
 inputs:
   hosts:
-    required: true
+    required: false
     description: A list of hosts to add to ~/.ssh/known_hosts
   private-key:
     required: true
@@ -34,11 +34,12 @@ runs:
         chmod 600 ~/.ssh/$KEY_NAME
         echo "path=~/.ssh/$KEY_NAME" >> $GITHUB_OUTPUT
     - name: Add to known_hosts
+      if: inputs.hosts != ''
       shell: bash
-      env: 
+      env:
         HOSTS: ${{ inputs.hosts }}
       run: |
         for host in $HOSTS; do
           ssh-keyscan $host >> ~/.ssh/known_hosts
         done
-        chmod 600 ~/.ssh/known_hosts 
+        chmod 600 ~/.ssh/known_hosts

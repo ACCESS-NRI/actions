@@ -6,7 +6,7 @@ This action sets up `ssh` to use a given key, and adds to `~/.ssh/known_hosts`.
 
 | Name | Type | Description | Required | Default | Example |
 | ---- | ---- | ----------- | -------- | ------- | ------- |
-| hosts | string | Newline-separated list of hosts for ssh-keyscan lookup | true | N/A | 'localhost' |
+| hosts | string | Newline-separated list of hosts for ssh-keyscan lookup | false | N/A | 'localhost' |
 | private-key | string | Raw private key to add | true | N/A | '---- OPENSSH PRIVATE KEY ---- ...' |
 | private-key-name | string | Name of the ephemeral private key file to store in `~/.ssh` | false | 'priv.key' | 'key.pem' | 
 
