@@ -96,6 +96,8 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: publish_python_package
+    permissions:
+      contents: write
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v5
