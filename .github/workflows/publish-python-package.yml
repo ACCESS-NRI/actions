@@ -20,6 +20,16 @@ on:
       artifact-name:
         description: "The name of the artifact containing the built packages and tarball"
         value: ${{ jobs.upload-artifact.outputs.artifact-name }}
+    secrets:
+      PYPI_TOKEN:
+        description: "The PyPI token used for publishing the Python package on PyPI"
+        required: false 
+      ANACONDA_TOKEN:
+        description: "The Anaconda token used for publishing the Conda package on Anaconda.org"
+        required: false
+      ANACONDA_USERNAME:
+        description: "The Anaconda username used for publishing the Conda package on Anaconda.org"
+        required: false
 
 env:
   PYTHON_ARTIFACT_NAME: _python_artifact
@@ -50,7 +60,7 @@ jobs:
         run: |
           # Set the current repository root as the default pyproject_toml_dir value
           if [ -z '${{ inputs.pyproject-toml-dir }}' ]; then
-            pyproject_toml_dir='.'
+            pyproject_toml_dir="$PWD"
             if [[ ! -f "$pyproject_toml_dir"/pyproject.toml ]]; then
               echo "::error::No 'pyproject.toml' found in the repository top-level folder. To specify the directory of your 'pyproject.toml', please use the 'pyproject-toml-dir' input"
               exit 1
@@ -121,7 +131,7 @@ jobs:
           path: ${{ env.PYTHON_ARTIFACT_DIR }}/*
   
   publish-package:
-    name: Publish package to PyPI
+    name: Publish package
     runs-on: ubuntu-latest
     needs: build_tarball_and_python_wheel
     environment: 'python-publish'
