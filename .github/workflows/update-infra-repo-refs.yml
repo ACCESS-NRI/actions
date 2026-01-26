@@ -1,0 +1,118 @@
+name: Update Infra Repository Ref In Workflows
+on:
+  workflow_call:
+    inputs:
+      repository:
+        type: string
+        required: false
+        # Can't set dynamic defaults 🙄
+        # default: ${{ github.repository }}
+        description: |
+          Repository that contains reusables that need to be updated in the caller.
+      ref:
+        type: string
+        required: true
+        description: |
+          Ref to update for inputs.repository reusables in the caller.
+      commit-to-branch:
+        type: string
+        required: true
+        description: |
+          Commit the changes to this branch in the caller.
+      path:
+        type: string
+        required: false
+        default: .github/workflows/*
+        description: |
+          Path glob or space-separated list of paths to search for reusables to update in the caller.
+      update-custom-actions-ref:
+        type: boolean
+        required: true
+        default: false
+        description: |
+          Whether to update custom actions referencing inputs.repository.
+          For workflows, these are of the form 'jobs.*.steps.*.uses: {inputs.repository}/.github/actions/*/action.yml@*'.
+          For custom composite actions, these are of the form 'runs.steps.*.uses: {inputs.repository}/.github/actions/*/action.yml@*'.
+      update-reusable-workflows-ref:
+        type: boolean
+        required: true
+        default: false
+        description: |
+          Whether to update reusable workflows referencing inputs.repository.
+          For workflows, These are of the form 'jobs.*.uses: {inputs.repository}/.github/workflows/*.yml@*'.
+          Custom actions can't call reusable workflows, so they will not be updated.
+      update-checked-out-repository-ref:
+        type: boolean
+        required: true
+        default: false
+        description: |
+          Whether to update any actions/checkout'd inputs.repository with am explicit ref.
+          For workflows, these are of the form 'jobs.*.steps.*.with.ref: REF', in which 'jobs.*.steps.*.uses' is 'actions/checkout@*'.
+          For custom composite actions, these are of the form 'runs.steps.*.with.ref: REF' in which 'runs.steps.*.uses' is 'actions/checkout@*'.
+    outputs:
+      commit:
+        value: ${{ jobs.update.outputs.commit }}
+        description: |
+          Commit SHA for the updated reusables.
+jobs:
+  update:
+    name: Update Refs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      commit: ${{ steps.commit.outputs.sha }}
+    steps:
+      - name: Set dynamic defaults
+        id: default
+        run: echo "repository=${{ inputs.repository || github.repository }}" >> $GITHUB_OUTPUT
+
+      - name: Checkout ${{ steps.default.outputs.repository }}
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.commit-to-branch }}
+
+      - name: Update Custom Actions Refs
+        if: inputs.update-custom-actions-ref
+        run: |
+          sed -E -i 's|(uses: ${{ inputs.repository }}/\.github/actions/[^@]+)@.+|\1@${{ inputs.ref }}|g' ${{ inputs.path }}
+
+      - name: Update Reusable Workflows Refs
+        if: inputs.update-reusable-workflows-ref
+        run: |
+          sed -E -i 's|uses: (${{ inputs.repository }}/\.github/workflows/[^@]+)@.+|\1@${{ inputs.ref }}|g' ${{ inputs.path }}
+
+      - name: Update Checked Out Repository Refs
+        if: inputs.update-checked-out-repository-ref
+        # These are of the form:
+        #   uses: actions/checkout
+        #   with:
+        #     repository: ${{ inputs.repository }}
+        #     ref: REF
+        # Which is a bit more complicated than the earlier updates...
+        run: |
+          # TODO: This will be a bit pricklier than I thought...
+
+      - name: Import Commit-Signing Key
+        uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4  # v6.1.0
+        with:
+          gpg_private_key: ${{ secrets.GH_ACTIONS_BOT_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GH_ACTIONS_BOT_GPG_PASSPHRASE }}
+          git_config_global: true
+          git_committer_name: ${{ vars.GH_ACTIONS_BOT_GIT_USER_NAME }}
+          git_committer_email: ${{ vars.GH_ACTIONS_BOT_GIT_USER_EMAIL }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+          git_tag_gpgsign: true
+
+      - name: Commit and Push Updates to ${{ inputs.commit-to-branch }}
+        id: commit
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/${{ github.run_id }}
+        run: |
+          git diff
+          git add .
+          git commit -m "Update workflow refs to ${{ inputs.ref }} via ${{ env.RUN_URL }}"
+          git push
+          echo "sha=$(git rev-parse HEAD)" >> GITHUB_OUTPUT
