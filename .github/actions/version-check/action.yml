@@ -1,0 +1,136 @@
+name: Version Sanity Check
+author: Davide Marchegiani
+description: Perform sanity check on a version string
+inputs:
+  versioning-scheme:
+    required: true
+    description: |
+      The type of versioning scheme used. Currently supports:
+      'semver': 'MAJOR.MINOR.PATCH'
+      'semver-major-minor': 'MAJOR.MINOR'
+  version:
+    required: false
+    description: |
+      The version string to perform the sanity check on. 
+      If not provided and this action was run on a tag push, 
+      it is set to github.ref_name.
+  previous-version:
+    required: false
+    description: |
+      The previous version used for version sanity check. 
+      If not provided, it is set based on the repository latest tag(s).
+runs:
+  using: composite
+  steps:
+    - name: Set version
+      id: set-version
+      shell: bash -el {0}
+      run: |
+        if [ -n '${{ inputs.version }}' ]; then
+          # If version input is provided set version as the input value
+          version='${{ inputs.version }}'
+        elif [[ ${{startsWith(github.ref, 'refs/tags/')}} == true ]]; then
+          # If action is used in a workflow triggered by a tag push set
+          # version as the tag name
+          version='${{ github.ref_name }}'
+        else
+          # Otherwise fail
+          echo "::error::version input not provided and action not run within a workflow triggered by a tag push"
+          exit 1
+        fi
+        echo "::info::Performing sanity check on version: $version"
+        echo "version=$version" >> $GITHUB_OUTPUT
+    
+    - name: Set version regex
+      id: set-version-regex
+      shell: bash -el {0}
+      run: |
+        if [ "${{ inputs.versioning-scheme }}" == "semver" ]; then
+          version_regex='^[0-9]+\.[0-9]+\.[0-9]+$'
+        elif [ "${{ inputs.versioning-scheme }}" == "semver-major-minor" ]; then
+          version_regex='^[0-9]+\.[0-9]+$'
+        fi
+        echo "version_regex=$version_regex" >> $GITHUB_OUTPUT
+    
+    - name: Version format sanity check
+      env:
+        VERSION_REGEX: '${{ steps.set-version-regex.outputs.version_regex }}'
+        VERSION: '${{ steps.set-version.outputs.version }}'
+      shell: bash
+      run: |
+        if [[ ! "$VERSION" =~ $VERSION_REGEX ]]; then
+            echo "::error::New version '$VERSION' does not match the expected format for versioning scheme '${{ inputs.versioning-scheme }}'."
+            exit 1
+        fi
+    
+    - name: Checkout repository
+      if: inputs.previous-version == ''
+      uses: actions/checkout@v6
+      with:
+        fetch-tags: true
+
+    - name: Set previous version
+      id: set-previous-version
+      shell: bash -el {0}
+      env:
+        VERSION_REGEX: '${{ steps.set-version-regex.outputs.version_regex }}'
+      run: |
+        if [ -n '${{ inputs.previous-version }}' ]; then
+          # If previous-version input is provided set previous_version as the input value
+          previous_version='${{ inputs.previous-version }}'
+        else
+          # Otherwise get the latest tag(s) based on the versioning scheme
+          if [[ -n '${{ inputs.version }}' ]]; then
+            # If version input is provided, we consider previous version the latest tag
+            latest_cmd='head -n 1'
+          else
+            # If version input is not provided (and therefore it is set to github.ref_name), 
+            # we consider previous version the second-latest tag (because the latest tag is github.ref_name)
+            latest_cmd='head -n 2 | tail -n 1'
+          fi
+          previous_version=$(
+            git tag --list --sort=-v:refname \
+            | grep -E "$VERSION_REGEX" \
+            | "$latest_cmd"
+          )
+          if [ -z "$previous_version" ]; then
+            echo "::info::No previous version tag found in the repository. Version sanity check against previous version will not be performed."
+          else
+            echo "::info::Performing sanity check against previous version: $previous_version"
+          fi
+        fi
+        echo "previous-version=$previous_version" >> $GITHUB_OUTPUT
+
+    - name: Sanity check against previous version
+      if: steps.set-previous-version.outputs.previous-version != ''
+      shell: bash
+      env:
+        VERSION: '${{ steps.set-version.outputs.version }}'
+        VERSION_REGEX: '${{ steps.set-version-regex.outputs.version_regex }}'
+        PREVIOUS_VERSION: '${{ steps.set-previous-version.outputs.previous-version }}'
+        VERSIONING_SCHEME: '${{ inputs.versioning-scheme }}'
+      run: |
+        if [[ "$VERSIONING_SCHEME" == semver* ]]; then
+          read -r major minor patch <<< $(echo "$VERSION" | tr '.' ' ')
+          read -r previous_major previous_minor previous_patch <<< $(echo "$PREVIOUS_VERSION" | tr '.' ' ')
+          # If patch is empty (i.e., semver-major-minor scheme), set patch and previous_patch to 0
+          # to allow easier comparison
+          if [ -z "$patch" ]; then
+            patch=0
+            previous_patch=0
+          fi
+          # Make sure version is not smaller than previous version
+          if (( major < previous_major )) || \
+            (( major == previous_major && minor < previous_minor )) || \
+            (( major == previous_major && minor == previous_minor && patch < previous_patch )); then
+            echo "::error::New version '$VERSION' cannot be smaller than previous version '$PREVIOUS_VERSION'."
+            exit 1
+          fi
+          # Make sure there are no jumps between version and previous version
+          if (( major > previous_major + 1 )) || \
+            (( minor > previous_minor + 1 )) || \
+            (( patch > previous_patch + 1 )); then
+            echo "::error::New version '$VERSION' contains jumps from previous version '$PREVIOUS_VERSION'."
+            exit 1
+          fi
+        fi
