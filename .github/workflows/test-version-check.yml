@@ -127,7 +127,7 @@ jobs:
               Test expected to succeed.
             inputs: >-
                 "versioning-scheme": "semver",
-                "version": "1.2.3"
+                "version": "1.3.0"
             fail: false
           - id: 12
             label: "Previous version and version not provided"

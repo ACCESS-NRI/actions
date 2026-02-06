@@ -112,7 +112,7 @@ runs:
             previous_version=$(
               git tag --list --sort=-v:refname \
               | grep -m 2 -E "$VERSION_REGEX" \
-              | tail -n 1
+              | sed -n '2p'
             )
           fi
           if [ -z "$previous_version" ]; then
