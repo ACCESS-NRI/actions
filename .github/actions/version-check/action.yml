@@ -119,11 +119,13 @@ runs:
             patch=0
             previous_patch=0
           fi
-          # Make sure version is not smaller than previous version
-          if (( major < previous_major )) || \
-            (( major == previous_major && minor < previous_minor )) || \
-            (( major == previous_major && minor == previous_minor && patch < previous_patch )); then
-            echo "::error::New version '$VERSION' cannot be smaller than previous version '$PREVIOUS_VERSION'."
+          # Make sure version is greater than previous version
+          if ! (
+            (( major > previous_major )) || \
+            (( major == previous_major && minor > previous_minor )) || \
+            (( major == previous_major && minor == previous_minor && patch > previous_patch ))
+          ); then
+            echo "::error::New version '$VERSION' must be greater than previous version '$PREVIOUS_VERSION'."
             exit 1
           fi
           # Make sure there are no jumps between version and previous version
