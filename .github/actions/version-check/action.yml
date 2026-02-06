@@ -133,8 +133,8 @@ runs:
         VERSIONING_SCHEME: '${{ inputs.versioning-scheme }}'
       run: |
         if [[ "$VERSIONING_SCHEME" == semver* ]]; then
-          read -r major minor patch <<< $(echo "$VERSION" | tr '.' ' ')
-          read -r previous_major previous_minor previous_patch <<< $(echo "$PREVIOUS_VERSION" | tr '.' ' ')
+          IFS='.' read -r major minor patch <<< "$VERSION"
+          IFS='.' read -r previous_major previous_minor previous_patch <<< "$PREVIOUS_VERSION"
           # If patch is empty (i.e., semver-major-minor scheme), set patch and previous_patch to 0
           # to allow easier comparison
           if [ -z "$patch" ]; then

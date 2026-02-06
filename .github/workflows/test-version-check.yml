@@ -1,5 +1,4 @@
 # Workflow to test the version-check action with various scenarios
-# Trigger by pushing the tag `1.2.3` (if it's the first tag) and then `1.2.4`
 name: Test version check action
 on:
   push:
@@ -7,9 +6,26 @@ on:
       - '**'
 
 jobs:
+  set-versions:
+    name: Set up test tags
+    runs-on: ubuntu-latest
+    outputs:
+      test-version: ${{ steps.set-versions.outputs.version }}
+      test-previous-version: ${{ steps.set-versions.outputs.previous-version }}
+    steps:
+      - name: Create test tags
+        id: set-versions
+        run: |
+          IFS='.' read -r major minor patch <<< "${{github.ref_name}}"
+          previous_version="${major}.${minor}.$((patch - 1))"
+          version="$((major + 1)).0.0"
+          echo "previous-version=$previous_version" >> $GITHUB_OUTPUT
+          echo "version=$version" >> $GITHUB_OUTPUT
+
   test-action:
     name: Test ${{ matrix.id }} - ${{ matrix.label }}
     runs-on: ubuntu-latest
+    needs: set-versions
     continue-on-error: ${{ matrix.fail }}
     strategy:
       fail-fast: false
@@ -117,7 +133,7 @@ jobs:
               Test expected to succeed.
             inputs: >-
                 "versioning-scheme": "semver",
-                "previous-version": "1.2.2"
+                "previous-version": "${{needs.set-versions.outputs.test-previous-version}}"
             fail: false
           - id: 11
             label: "Previous version not provided and version provided"
@@ -127,7 +143,7 @@ jobs:
               Test expected to succeed.
             inputs: >-
                 "versioning-scheme": "semver",
-                "version": "1.3.0"
+                "version": "${{needs.set-versions.outputs.test-version}}"
             fail: false
           - id: 12
             label: "Previous version and version not provided"
