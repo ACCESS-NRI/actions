@@ -154,6 +154,13 @@ jobs:
                 "versioning-scheme": "semver-major-minor",
                 "version": "2.1.0"
             fail: true
+          - id: 15
+            label: "Failure wrong versioning scheme"
+            description: |
+              Test action when a non-supported versioning scheme is provided
+            inputs: >-
+                "versioning-scheme": "unsupported-scheme",
+            fail: true
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
