@@ -22,6 +22,25 @@ inputs:
 runs:
   using: composite
   steps:
+    # Make sure that versioning scheme is among the supported ones
+    - name: Check versioning scheme
+      shell: bash -el {0}
+      run: |
+        supported_versioning_schemes=(
+          semver
+          semver-major-minor
+        )
+        for scheme in "${supported_versioning_schemes[@]}"; do
+          if [ "${{ inputs.versioning-scheme }}" == "$scheme" ]; then
+            scheme_supported=true
+            break
+          fi
+        done
+        if [ "$scheme_supported" != true ]; then
+          echo "::error::Versioning scheme '${{ inputs.versioning-scheme }}' is not supported. Chose one of: ${supported_versioning_schemes[*]}"
+          exit 1
+        fi
+
     - name: Set version
       id: set-version
       shell: bash -el {0}
@@ -82,17 +101,20 @@ runs:
           # Otherwise get the latest tag(s) based on the versioning scheme
           if [[ -n '${{ inputs.version }}' ]]; then
             # If version input is provided, we consider previous version the latest tag
-            latest_cmd='head -n 1'
+            previous_version=$(
+              git tag --list --sort=-v:refname \
+              | grep -m 1 -E "$VERSION_REGEX"
+            )
           else
             # If version input is not provided (and therefore it is set to github.ref_name), 
-            # we consider previous version the second-latest tag (because the latest tag is github.ref_name)
-            latest_cmd='tail -n 1'
+            # we consider previous version the second-latest tag 
+            # (because the latest tag is github.ref_name)
+            previous_version=$(
+              git tag --list --sort=-v:refname \
+              | grep -m 2 -E "$VERSION_REGEX" \
+              | tail -n 1
+            )
           fi
-          previous_version=$(
-            git tag --list --sort=-v:refname \
-            | grep -m 2 -E "$VERSION_REGEX" \
-            | "$latest_cmd"
-          )
           if [ -z "$previous_version" ]; then
             echo "::info::No previous version tag found in the repository. Version sanity check against previous version will not be performed."
           else
