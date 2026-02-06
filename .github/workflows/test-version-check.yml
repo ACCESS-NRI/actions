@@ -1,0 +1,180 @@
+# Workflow to test the version-check action with various scenarios
+# Trigger by pushing the tag `1.2.3` (if it's the first tag) and then `1.2.4`
+name: Test version check action
+on:
+  push:
+    tags:
+      - '**'
+
+jobs:
+  test-action:
+    name: Test ${{ matrix.id }} - ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.fail }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: 1
+            label: "semver - patch increment"
+            description: |
+              Test action for a semver versioning scheme when version and previous-version 
+              inputs are both provided and the new version is a patch increment.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "previous-version": "1.1.3",
+                "version": "1.1.4"
+            fail: false
+          - id: 2
+            label: "semver - minor increment"
+            description: |
+              Test action for a semver versioning scheme when version and previous-version 
+              inputs are both provided and the new version is a minor increment.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "previous-version": "1.1.3",
+                "version": "1.2.0"
+            fail: false
+          - id: 3
+            label: "semver - major increment"
+            description: |
+              Test action for a semver versioning scheme when version and previous-version 
+              inputs are both provided and the new version is a major increment.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "previous-version": "1.1.3",
+                "version": "2.0.0"
+            fail: false
+          - id: 4
+            label: "semver-major-minor - minor increment"
+            description: |
+              Test action for a semver-major-minor versioning scheme when version and previous-version 
+              inputs are both provided and the new version is a minor increment.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver-major-minor",
+                "previous-version": "1.1",
+                "version": "1.2"
+            fail: false
+          - id: 5
+            label: "semver-major-minor - major increment"
+            description: |
+              Test action for a semver-major-minor versioning scheme when version and previous-version 
+              inputs are both provided and the new version is a major increment.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver-major-minor",
+                "previous-version": "1.1",
+                "version": "2.0"
+            fail: false
+          - id: 6
+            label: "semver - failure jump"
+            description: |
+              Test action for a semver versioning scheme when version has a jump.
+              Test expected to fail.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "previous-version": "1.1.3",
+                "version": "1.3.0"
+            fail: true
+          - id: 7
+            label: "semver - not greater"
+            description: |
+              Test action for a semver versioning scheme when version is not greater than previous-version.
+              Test expected to fail.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "previous-version": "1.1.3",
+                "version": "1.1.3"
+            fail: true
+          - id: 8
+            label: "semver-major-minor - failure jump"
+            description: |
+              Test action for a semver-major-minor versioning scheme when version has a jump.
+              Test expected to fail.
+            inputs: >-
+                "versioning-scheme": "semver-major-minor",
+                "previous-version": "1.1",
+                "version": "1.3"
+            fail: true
+          - id: 9
+            label: "semver-major-minor - not greater"
+            description: |
+              Test action for a semver-major-minor versioning scheme when version is not greater than previous-version.
+              Test expected to fail.
+            inputs: >-
+                "versioning-scheme": "semver-major-minor",
+                "previous-version": "1.1",
+                "version": "1.1"
+            fail: true
+          - id: 10
+            label: "Version not provided"
+            description: |
+              Test action for version not provided and inferred from github.ref_name.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "previous-version": "1.2.2"
+            fail: false
+          - id: 11
+            label: "Previous version not provided and version provided"
+            description: |
+              Test action for previous-version not provided and version provided.
+              previous-version is inferred from latest tag.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "version": "1.2.3"
+            fail: false
+          - id: 12
+            label: "Previous version and version not provided"
+            description: |
+              Test action for both previous-version and version not provided.
+              previous-version is inferred from second-latest tag.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver"
+            fail: false
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Description
+        run: echo "${{ matrix.description }}"
+
+      - name: Test
+        id: test-action
+        uses: jenseng/dynamic-uses@8bc24f0360175e710da532c4d19eafdbed489a06 #v1.1.1 - Needed because github context is not supported within step.uses (https://github.com/actions/runner/issues/895)
+        with: 
+          uses: ${{ github.repository }}/.github/actions/version-check@${{github.sha}}
+          with: '{ ${{ matrix.inputs }} }'
+
+  cleanup:
+    name: Cleanup tags
+    runs-on: ubuntu-latest
+    needs: [test-action]
+    # We also run this if any of the previous jobs fail to ensure tags are cleaned up
+    if: always()
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0 
+      
+      # We clean the tag only if a previous tag is present (to allow testing for second-latest tags)
+      # We will have to delete the only remaining tag manually after testing
+      - name: Cleanup latest tag
+        run: |
+          n_tags=$(git tag --list | wc -l | xargs) # xargs to trim whitespace
+          if [[ $n_tags > 1 ]]; then
+            git push origin ':${{ github.ref }}'
+            echo "Tag '${{ github.ref }}' was deleted."
+          fi
