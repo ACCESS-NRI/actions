@@ -13,7 +13,7 @@ Custom GitHub Actions and Workflows for use across the ACCESS-NRI.
 * [comment](.github/actions/comment/README.md): Add, modify or delete a comment on a given issue or PR.
 * [cache-svn-auth](.github/actions/cache-svn-auth/README.md): Cache Subversion (SVN)'s authentication password.
 * [get-git-ref-info](.github/actions/get-git-ref-info/README.md): Determine if a given git ref is a branch, tag or SHA, if it exists.
-* [version-check](.github/actions/version-check/README.md): Perform a sanity check on the current version (current tag) based on the previous tag and on the version format.
+* [version-check](.github/actions/version-check/README.md): Perform a version sanity check based on versioning scheme and previous version.
 
 ## Workflows
 
