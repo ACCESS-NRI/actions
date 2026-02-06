@@ -86,11 +86,11 @@ runs:
           else
             # If version input is not provided (and therefore it is set to github.ref_name), 
             # we consider previous version the second-latest tag (because the latest tag is github.ref_name)
-            latest_cmd='head -n 2 | tail -n 1'
+            latest_cmd='tail -n 1'
           fi
           previous_version=$(
             git tag --list --sort=-v:refname \
-            | grep -E "$VERSION_REGEX" \
+            | grep -m 2 -E "$VERSION_REGEX" \
             | "$latest_cmd"
           )
           if [ -z "$previous_version" ]; then

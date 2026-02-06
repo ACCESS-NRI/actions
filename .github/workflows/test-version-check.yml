@@ -81,7 +81,7 @@ jobs:
                 "version": "1.3.0"
             fail: true
           - id: 7
-            label: "semver - not greater"
+            label: "semver - failure not greater"
             description: |
               Test action for a semver versioning scheme when version is not greater than previous-version.
               Test expected to fail.
@@ -101,7 +101,7 @@ jobs:
                 "version": "1.3"
             fail: true
           - id: 9
-            label: "semver-major-minor - not greater"
+            label: "semver-major-minor - failure not greater"
             description: |
               Test action for a semver-major-minor versioning scheme when version is not greater than previous-version.
               Test expected to fail.
