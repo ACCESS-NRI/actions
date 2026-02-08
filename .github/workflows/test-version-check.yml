@@ -26,7 +26,6 @@ jobs:
     name: Test ${{ matrix.id }} - ${{ matrix.label }}
     runs-on: ubuntu-latest
     needs: set-versions
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -186,6 +185,7 @@ jobs:
 
       - name: Test
         id: test-action
+        continue-on-error: true
         uses: jenseng/dynamic-uses@8bc24f0360175e710da532c4d19eafdbed489a06 #v1.1.1 - Needed because github context is not supported within step.uses (https://github.com/actions/runner/issues/895)
         with: 
           uses: ${{ github.repository }}/.github/actions/version-check@${{github.sha}}
