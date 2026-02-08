@@ -32,14 +32,11 @@ runs:
         )
         for scheme in "${supported_versioning_schemes[@]}"; do
           if [ "${{ inputs.versioning-scheme }}" == "$scheme" ]; then
-            scheme_supported=true
-            break
+            exit 0
           fi
         done
-        if [ "$scheme_supported" != true ]; then
-          echo "::error::Versioning scheme '${{ inputs.versioning-scheme }}' is not supported. Chose one of: ${supported_versioning_schemes[*]}"
-          exit 1
-        fi
+        echo "::error::Versioning scheme '${{ inputs.versioning-scheme }}' is not supported. Chose one of: ${supported_versioning_schemes[*]}"
+        exit 1
 
     - name: Set version
       id: set-version
