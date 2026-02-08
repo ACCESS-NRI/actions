@@ -13,11 +13,18 @@ jobs:
       test-version: ${{ steps.set-versions.outputs.version }}
       test-previous-version: ${{ steps.set-versions.outputs.previous-version }}
     steps:
+      # Create some versions for testing that will always be valid, no matter the tag pushed
       - name: Create test tags
         id: set-versions
         run: |
           IFS='.' read -r major minor patch <<< "${{github.ref_name}}"
-          previous_version="${major}.${minor}.$((patch - 1))"
+          if [ patch -ne 0 ]; then
+            previous_version="${major}.${minor}.$((patch - 1))"
+          elif [ minor -ne 0 ]; then
+            previous_version="${major}.$((minor - 1)).6"
+          else
+            previous_version="$((major - 1)).2.3"
+          fi
           version="$((major + 1)).0.0"
           echo "previous-version=$previous_version" >> $GITHUB_OUTPUT
           echo "version=$version" >> $GITHUB_OUTPUT
