@@ -43,6 +43,7 @@ jobs:
     name: Test ${{ matrix.id }} - ${{ matrix.label }}
     runs-on: ubuntu-latest
     needs: set-versions
+    if: always() && needs.set-versions.result != 'failure'
     strategy:
       fail-fast: false
       matrix:
