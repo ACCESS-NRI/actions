@@ -17,14 +17,14 @@ jobs:
   set-versions:
     name: Set up test tags
     runs-on: ubuntu-latest
+    # Only run this when this test workflow runs after a tag push
+    if: startsWith(github.ref, 'refs/tags/')
     outputs:
       test-version: ${{ steps.set-versions.outputs.version }}
       test-previous-version: ${{ steps.set-versions.outputs.previous-version }}
     steps:
       # Create some versions for testing that will always be valid, no matter the tag pushed
       - name: Create test tags
-        # Only run this when this test workflow runs after a tag push
-        if: startsWith(github.ref, 'refs/tags/')
         id: set-versions
         run: |
           IFS='.' read -r major minor patch <<< "${{github.ref_name}}"
