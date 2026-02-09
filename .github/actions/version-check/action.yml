@@ -31,7 +31,7 @@ runs:
           semver-major-minor
         )
         for scheme in "${supported_versioning_schemes[@]}"; do
-          if [ "${{ inputs.versioning-scheme }}" == "$scheme" ]; then
+          if [[ "${{ inputs.versioning-scheme }}" == "$scheme" ]]; then
             exit 0
           fi
         done
