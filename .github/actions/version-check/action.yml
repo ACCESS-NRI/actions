@@ -24,7 +24,7 @@ runs:
   steps:
     # Make sure that versioning scheme is among the supported ones
     - name: Check versioning scheme
-      shell: bash -el {0}
+      shell: bash
       run: |
         supported_versioning_schemes=(
           semver
@@ -40,7 +40,7 @@ runs:
 
     - name: Set version
       id: set-version
-      shell: bash -el {0}
+      shell: bash
       run: |
         if [ -n '${{ inputs.version }}' ]; then
           # If version input is provided set version as the input value
@@ -59,7 +59,7 @@ runs:
     
     - name: Set version regex
       id: set-version-regex
-      shell: bash -el {0}
+      shell: bash
       run: |
         if [ "${{ inputs.versioning-scheme }}" == "semver" ]; then
           version_regex='^[0-9]+\.[0-9]+\.[0-9]+$'
@@ -87,7 +87,7 @@ runs:
 
     - name: Set previous version
       id: set-previous-version
-      shell: bash -el {0}
+      shell: bash
       env:
         VERSION_REGEX: '${{ steps.set-version-regex.outputs.version_regex }}'
       run: |
