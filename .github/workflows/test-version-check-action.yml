@@ -1,9 +1,17 @@
-# Workflow to test the version-check action with various scenarios
+# Workflow to test the version-check action
 name: Test version check action
 on:
-  push:
-    tags:
-      - '**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/actions/version-check/**'
+      - '.github/workflows/test-version-check.yml'
+# # This can be uncommented when testing the action manually by pushing tags
+# # Together with this, the additional tests should be uncommented
+#   push: 
+#     tags:
+#       - '**'
 
 jobs:
   set-versions:
@@ -15,6 +23,8 @@ jobs:
     steps:
       # Create some versions for testing that will always be valid, no matter the tag pushed
       - name: Create test tags
+        # Only run this when this test workflow runs after a tag push
+        if: startsWith(github.ref, 'refs/tags/')
         id: set-versions
         run: |
           IFS='.' read -r major minor patch <<< "${{github.ref_name}}"
@@ -133,34 +143,6 @@ jobs:
                 "version": "1.1"
             outcome: "failure"
           - id: 10
-            label: "Version not provided"
-            description: |
-              Test action for version not provided and inferred from github.ref_name.
-              Test expected to succeed.
-            inputs: >-
-                "versioning-scheme": "semver",
-                "previous-version": "${{needs.set-versions.outputs.test-previous-version}}"
-            outcome: "success"
-          - id: 11
-            label: "Previous version not provided and version provided"
-            description: |
-              Test action for previous-version not provided and version provided.
-              previous-version is inferred from latest tag.
-              Test expected to succeed.
-            inputs: >-
-                "versioning-scheme": "semver",
-                "version": "${{needs.set-versions.outputs.test-version}}"
-            outcome: "success"
-          - id: 12
-            label: "Previous version and version not provided"
-            description: |
-              Test action for both previous-version and version not provided.
-              previous-version is inferred from second-latest tag.
-              Test expected to succeed.
-            inputs: >-
-                "versioning-scheme": "semver"
-            outcome: "success"
-          - id: 13
             label: "Semver failure wrong format"
             description: |
               Test action for semver versioning scheme when the format is not correct.
@@ -168,7 +150,7 @@ jobs:
                 "versioning-scheme": "semver",
                 "version": "2.1"
             outcome: "failure"
-          - id: 14
+          - id: 11
             label: "Semver-major-minor failure wrong format"
             description: |
               Test action for semver-major-minor versioning scheme when the format is not correct.
@@ -176,13 +158,42 @@ jobs:
                 "versioning-scheme": "semver-major-minor",
                 "version": "2.1.0"
             outcome: "failure"
-          - id: 15
+          - id: 12
             label: "Failure wrong versioning scheme"
             description: |
               Test action when a non-supported versioning scheme is provided
             inputs: >-
                 "versioning-scheme": "unsupported-scheme",
             outcome: "failure"
+          # Tests to be uncommented only when the workflow is triggered by a tag push
+        #   - id: 13
+        #     label: "Version not provided"
+        #     description: |
+        #       Test action for version not provided and not within a git tag.
+        #       Test expected to fail.
+        #     inputs: >-
+        #         "versioning-scheme": "semver",
+        #         "previous-version": "${{needs.set-versions.outputs.test-previous-version}}"
+        #     outcome: "success"
+        #   - id: 14
+        #     label: "Previous version not provided and version provided"
+        #     description: |
+        #       Test action for previous-version not provided and version provided.
+        #       previous-version is inferred from latest tag.
+        #       Test expected to succeed.
+        #     inputs: >-
+        #         "versioning-scheme": "semver",
+        #         "version": "${{needs.set-versions.outputs.test-version}}"
+        #     outcome: "success"
+        #   - id: 15
+        #     label: "Previous version and version not provided"
+        #     description: |
+        #       Test action for both previous-version and version not provided.
+        #       previous-version is inferred from second-latest tag.
+        #       Test expected to succeed.
+        #     inputs: >-
+        #         "versioning-scheme": "semver"
+        #     outcome: "success"
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
