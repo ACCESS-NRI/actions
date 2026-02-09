@@ -1,0 +1,247 @@
+# Workflow to test the version-check action
+name: Test version check action
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/actions/version-check/**'
+      - '.github/workflows/test-version-check.yml'
+# # This can be uncommented when testing the action manually by pushing tags
+# # Together with this, the additional tests should be uncommented
+#   push: 
+#     tags:
+#       - '**'
+
+jobs:
+  set-versions:
+    name: Set up test tags
+    runs-on: ubuntu-latest
+    # Only run this when this test workflow runs after a tag push
+    if: startsWith(github.ref, 'refs/tags/')
+    outputs:
+      test-version: ${{ steps.set-versions.outputs.version }}
+      test-previous-version: ${{ steps.set-versions.outputs.previous-version }}
+    steps:
+      # Create some versions for testing that will always be valid, no matter the tag pushed
+      - name: Create test tags
+        id: set-versions
+        run: |
+          IFS='.' read -r major minor patch <<< "${{github.ref_name}}"
+          if [ patch -ne 0 ]; then
+            previous_version="${major}.${minor}.$((patch - 1))"
+          elif [ minor -ne 0 ]; then
+            previous_version="${major}.$((minor - 1)).6"
+          else
+            previous_version="$((major - 1)).2.3"
+          fi
+          version="$((major + 1)).0.0"
+          echo "previous-version=$previous_version" >> $GITHUB_OUTPUT
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+  test-action:
+    name: Test ${{ matrix.id }} - ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    needs: set-versions
+    if: always() && needs.set-versions.result != 'failure'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: 1
+            label: "Semver patch increment"
+            description: |
+              Test action for a semver versioning scheme when version and previous-version 
+              inputs are both provided and the new version is a patch increment.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "previous-version": "1.1.3",
+                "version": "1.1.4"
+            outcome: "success"
+          - id: 2
+            label: "Semver minor increment"
+            description: |
+              Test action for a semver versioning scheme when version and previous-version 
+              inputs are both provided and the new version is a minor increment.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "previous-version": "1.1.3",
+                "version": "1.2.0"
+            outcome: "success"
+          - id: 3
+            label: "Semver major increment"
+            description: |
+              Test action for a semver versioning scheme when version and previous-version 
+              inputs are both provided and the new version is a major increment.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "previous-version": "1.1.3",
+                "version": "2.0.0"
+            outcome: "success"
+          - id: 4
+            label: "Semver-major-minor minor increment"
+            description: |
+              Test action for a semver-major-minor versioning scheme when version and previous-version 
+              inputs are both provided and the new version is a minor increment.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver-major-minor",
+                "previous-version": "1.1",
+                "version": "1.2"
+            outcome: "success"
+          - id: 5
+            label: "Semver-major-minor major increment"
+            description: |
+              Test action for a semver-major-minor versioning scheme when version and previous-version 
+              inputs are both provided and the new version is a major increment.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver-major-minor",
+                "previous-version": "1.1",
+                "version": "2.0"
+            outcome: "success"
+          - id: 6
+            label: "Semver failure jump"
+            description: |
+              Test action for a semver versioning scheme when version has a jump.
+              Test expected to fail.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "previous-version": "1.1.3",
+                "version": "1.3.0"
+            outcome: "failure"
+          - id: 7
+            label: "Semver failure not greater"
+            description: |
+              Test action for a semver versioning scheme when version is not greater than previous-version.
+              Test expected to fail.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "previous-version": "1.1.3",
+                "version": "1.1.3"
+            outcome: "failure"
+          - id: 8
+            label: "Semver-major-minor failure jump"
+            description: |
+              Test action for a semver-major-minor versioning scheme when version has a jump.
+              Test expected to fail.
+            inputs: >-
+                "versioning-scheme": "semver-major-minor",
+                "previous-version": "1.1",
+                "version": "1.3"
+            outcome: "failure"
+          - id: 9
+            label: "Semver-major-minor failure not greater"
+            description: |
+              Test action for a semver-major-minor versioning scheme when version is not greater than previous-version.
+              Test expected to fail.
+            inputs: >-
+                "versioning-scheme": "semver-major-minor",
+                "previous-version": "1.1",
+                "version": "1.1"
+            outcome: "failure"
+          - id: 10
+            label: "Semver failure wrong format"
+            description: |
+              Test action for semver versioning scheme when the format is not correct.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "version": "2.1"
+            outcome: "failure"
+          - id: 11
+            label: "Semver-major-minor failure wrong format"
+            description: |
+              Test action for semver-major-minor versioning scheme when the format is not correct.
+            inputs: >-
+                "versioning-scheme": "semver-major-minor",
+                "version": "2.1.0"
+            outcome: "failure"
+          - id: 12
+            label: "Failure wrong versioning scheme"
+            description: |
+              Test action when a non-supported versioning scheme is provided
+            inputs: >-
+                "versioning-scheme": "unsupported-scheme",
+            outcome: "failure"
+          # Tests to be uncommented only when the workflow is triggered by a tag push
+        #   - id: 13
+        #     label: "Version not provided"
+        #     description: |
+        #       Test action for version not provided and not within a git tag.
+        #       Test expected to fail.
+        #     inputs: >-
+        #         "versioning-scheme": "semver",
+        #         "previous-version": "${{needs.set-versions.outputs.test-previous-version}}"
+        #     outcome: "success"
+        #   - id: 14
+        #     label: "Previous version not provided and version provided"
+        #     description: |
+        #       Test action for previous-version not provided and version provided.
+        #       previous-version is inferred from latest tag.
+        #       Test expected to succeed.
+        #     inputs: >-
+        #         "versioning-scheme": "semver",
+        #         "version": "${{needs.set-versions.outputs.test-version}}"
+        #     outcome: "success"
+        #   - id: 15
+        #     label: "Previous version and version not provided"
+        #     description: |
+        #       Test action for both previous-version and version not provided.
+        #       previous-version is inferred from second-latest tag.
+        #       Test expected to succeed.
+        #     inputs: >-
+        #         "versioning-scheme": "semver"
+        #     outcome: "success"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Description
+        run: echo "${{ matrix.description }}"
+
+      - name: Test
+        id: test-action
+        continue-on-error: true
+        uses: jenseng/dynamic-uses@8bc24f0360175e710da532c4d19eafdbed489a06 #v1.1.1 - Needed because github context is not supported within step.uses (https://github.com/actions/runner/issues/895)
+        with: 
+          uses: ${{ github.repository }}/.github/actions/version-check@${{github.sha}}
+          with: '{ ${{ matrix.inputs }} }'
+    
+      - name: Verify expected outcome
+        if: always()
+        run: |
+          if [[ '${{ matrix.outcome }}' == '${{ steps.test-action.outcome }}' ]]; then
+            exit 0
+          else
+            exit 1
+          fi
+
+  cleanup:
+    name: Cleanup tags
+    runs-on: ubuntu-latest
+    needs: [test-action]
+    # We also run this if any of the previous jobs fail to ensure tags are cleaned up
+    if: always() && startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0 
+      
+      # We clean the tag only if a previous tag is present (to allow testing for second-latest tags)
+      # We will have to delete the only remaining tag manually after testing
+      - name: Cleanup latest tag
+        run: |
+          n_tags=$(git tag --list | wc -l | xargs) # xargs to trim whitespace
+          if [[ $n_tags > 1 ]]; then
+            git push origin ':${{ github.ref }}'
+            echo "Tag '${{ github.ref }}' was deleted."
+          fi
