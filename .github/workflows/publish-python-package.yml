@@ -162,6 +162,7 @@ jobs:
             anaconda-client
             versioneer
             grayskull
+            setuptools
       
       - name: Create recipe from tarball
         id: create-recipe
