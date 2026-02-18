@@ -36,6 +36,8 @@ env:
   PYTHON_ARTIFACT_DIR: ${{ github.workspace }}/_python_artifact_dir
   CONDA_ARTIFACT_NAME: _conda_artifact
   CONDA_ARTIFACT_DIR: ${{ github.workspace }}/_conda_artifact_dir
+  BUILD_ENV_FILE: ${{ github.workspace }}/build_environment.yaml
+  BUILD_ENV_NAME: build-env
   ARTIFACT_NAME: _dist_artifact
   ARTIFACT_DIR: ${{ github.workspace }}/_dist_artifact_dir
 
@@ -144,20 +146,32 @@ jobs:
         with:
           name: ${{ env.PYTHON_ARTIFACT_NAME }}
           path: ${{ env.PYTHON_ARTIFACT_DIR }}
+        
+      - name: Set micromamba environment file
+        if: ${{ inputs.conda-package }}
+        run: |
+          env_file_lines=(
+            'name: ${{ env.BUILD_ENV_NAME }}'
+            'channels:'
+            '  - accessnri'
+            '  - conda-forge'
+            '  - nodefaults'
+            'dependencies:'
+            '  - python>=3.11'
+            '  - conda-build'
+            '  - anaconda-client'
+            '  - grayskull'
+            '  - versioneer'
+            '  - setuptools-scm'
+          )
+          printf "%s\n" "${env_file_lines[@]}" > '${{ env.BUILD_ENV_FILE }}'
 
       - name: Set up micromamba
         uses: mamba-org/setup-micromamba@v2
         if: ${{ inputs.conda-package }}
         with:
-          environment-name: build-env
-          create-args: >-
-            'python>=3.11'
-            conda-build
-            anaconda-client
-            grayskull
-            versioneer
-            setuptools-scm
-      
+          environment-file: '${{ env.BUILD_ENV_FILE }}'
+
       - name: Create recipe from tarball
         id: create-recipe
         if: ${{ inputs.conda-package }}
@@ -166,7 +180,7 @@ jobs:
           recipe_dir=${{ github.workspace }}/_recipe_dir
           mkdir "$recipe_dir" && cd "$recipe_dir"
           # Create conda recipe from the tarball
-          micromamba run -n build-env grayskull pypi ${{ env.PYTHON_ARTIFACT_DIR }}/*.tar.gz
+          micromamba run -n ${{ env.BUILD_ENV_NAME }} grayskull pypi ${{ env.PYTHON_ARTIFACT_DIR }}/*.tar.gz
           # Find the directory containing meta.yaml.
           meta_yaml_dir=$(find "$recipe_dir" -name meta.yaml -exec dirname {} \;)
           echo "meta-yaml-dir=$meta_yaml_dir" >> $GITHUB_OUTPUT
