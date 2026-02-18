@@ -6,9 +6,11 @@ Perform a version sanity check based on versioning scheme and previous version.
 
 | Name | Type | Description | Required | Default | Example |
 | ---- | ---- | ----------- | -------- | ------- | ------- |
-| `versioning-scheme` | `string` | The type of [versioning scheme](#versioning-schemes) used. | YES | N/A | `semver`, `semver-major-minor` |
-| `version` | `string` | The version string to perform the sanity check on. If not provided and this action was run on a tag push, `version` is set to `${{github.ref_name}}`. | NO | `${{github.ref_name}}` | `1.2.5`, `1.0`  |
-| `previous-version` | `string` | The previous version used for version sanity check. If not provided, `previous-version` is set through the [latest tag](#latest-tag). | NO | [Latest tag](#latest-tag) | `1.2.5`, `1.0`  |
+| `versioning-scheme` | `string` | The type of [versioning scheme](#versioning-schemes) used, not including any prefix. | YES | N/A | `semver`, `semver-major-minor` |
+| `version` | `string` | The version string to perform the sanity check on, including any prefix. If not provided and this action was run on a tag push, `version` is set to `${{github.ref_name}}`.
+| NO | `${{github.ref_name}}` | `1.2.5`, `v1.0`  |
+| `previous-version` | `string` | The previous version used for version sanity check, including any prefix. If not provided, `previous-version` is set through the [latest tag](#latest-tag). | NO | [Latest tag](#latest-tag) | `1.2.5`, `v1.0`  |
+| `prefix` | `string` | Any prefix to the `versioning-scheme` included in the `version` string. | NO | N/A | `v`, `dev`  |
 
 ### Versioning Schemes
 
@@ -19,14 +21,20 @@ We currently support these versioning schemes.
 | `semver` | `MAJOR.MINOR.PATCH` | [`semver` scheme checks](#semver-scheme) | [Semantic Versioning](https://semver.org/) scheme with `MAJOR`, `MINOR` and `PATCH` versions |
 | `semver-major-minor` | `MAJOR.MINOR` | [`semver-major-minor` scheme checks](#semver-major-minor-scheme) | A variation of [Semantic Versioning](https://semver.org/) scheme, with only `MAJOR` and `MINOR` versions |
 
+If a `prefix` is present, the versioning scheme is the part of the `version` string without `prefix`.
+
+
 ### Sanity checks performed
 #### `semver` scheme
-1. `version` matches the `semver` format `[0-9]+.[0-9]+.[0-9]+`
-2. There are no jumps from `previous-version` to `version` and `version > previous-version`.
+1. `version` matches the `semver` format, including any `prefix`: `<prefix>[0-9]+.[0-9]+.[0-9]+`
+2. There are no jumps from `previous-version` to `version` and `version > previous-version`. 
+   For this check, `prefix` is not considered and gets stripped from `version` and `previous-version` before performing the check.
 
 #### `semver-major-minor` scheme
-1. `version` matches the `semver-major-minor` format `[0-9]+.[0-9]+`
+1. `version` matches the `semver-major-minor` format, including any `prefix`: `<prefix>[0-9]+.[0-9]+`
 2. There are no jumps from `previous-version` to `version` and `version > previous-version`.
+   For this check, `prefix` is not considered and gets stripped from `version` and `previous-version` before performing the check.
+
 
 ### Latest tag
 If `previous-version` is not provided, it is inferred as follows:
@@ -53,7 +61,26 @@ jobs:
         with: 
           versioning-scheme: semver
 ```
+</details>
 
+<details>
+<summary><b>Check version with <code>vMAJOR.MINOR</code> format</b></summary>
+
+```yaml
+# ...
+jobs:
+# ...
+  version-sanity-check:
+    name: Version sanity check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check version
+        uses: access-nri/actions/.github/actions/version-check@main
+        with: 
+          versioning-scheme: semver-major-minor
+          version: v1.2
+          prefix: v
+```
 </details>
 
 <details>

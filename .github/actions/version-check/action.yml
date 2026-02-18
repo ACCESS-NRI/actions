@@ -5,20 +5,35 @@ inputs:
   versioning-scheme:
     required: true
     description: |
-      The type of versioning scheme used. Currently supports:
+      The type of versioning scheme used, not including
+      any prefix. 
+
+      Currently supports:
       'semver': 'MAJOR.MINOR.PATCH'
       'semver-major-minor': 'MAJOR.MINOR'
+
+      For example, if the full format is 'vMAJOR.MINOR', the
+      versioning scheme should be set to 'semver-major-minor'.
   version:
     required: false
     description: |
       The version string to perform the sanity check on. 
+      This should be the full string including any prefix (e.g., 'v1.2.3').
       If not provided and this action was run on a tag push, 
       it is set to github.ref_name.
   previous-version:
     required: false
     description: |
       The previous version used for version sanity check. 
+      This should be the full string including any prefix (e.g., 'v1.2.3').
       If not provided, it is set based on the repository latest tag(s).
+  prefix:
+    required: false
+    description: |
+      Any prefix to the versioning-scheme included in the version string.
+      For example, for a version string 'v1.2.3', the prefix should be set to 'v'. 
+      This prefix is taken into account for version string match, but it will be
+      dropped for version sanity check against the previous version. 
 runs:
   using: composite
   steps:
