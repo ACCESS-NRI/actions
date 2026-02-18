@@ -43,6 +43,9 @@ If `previous-version` is not provided, it is inferred as follows:
 
 If no suitable `previous-version` can be determined, no sanity check against a previous version is performed.
 
+> [!NOTE]
+> If a `prefix` is provided, it is still considered when inferring the `previous-version`.
+
 ## Examples
 
 <details>
