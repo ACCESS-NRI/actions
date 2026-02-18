@@ -144,25 +144,19 @@ jobs:
         with:
           name: ${{ env.PYTHON_ARTIFACT_NAME }}
           path: ${{ env.PYTHON_ARTIFACT_DIR }}
-    
-      - name: Publish package to PyPI
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
-        if: ${{ inputs.pypi-package }}
-        with:
-          password: ${{ secrets.PYPI_TOKEN }}
-          packages-dir: ${{ env.PYTHON_ARTIFACT_DIR }}
-  
+
       - name: Set up micromamba
         uses: mamba-org/setup-micromamba@v2
         if: ${{ inputs.conda-package }}
         with:
           environment-name: build-env
           create-args: >-
+            'python>=3.11'
             conda-build
             anaconda-client
-            versioneer
             grayskull
-            setuptools
+            versioneer
+            setuptools-scm
       
       - name: Create recipe from tarball
         id: create-recipe
@@ -185,12 +179,20 @@ jobs:
           meta_yaml_dir: ${{ steps.create-recipe.outputs.meta-yaml-dir }}
           user: ${{ secrets.ANACONDA_USERNAME }}
           token: ${{ secrets.ANACONDA_TOKEN }}
-    
+
       - name: Upload conda artifact
         uses: actions/upload-artifact@v4
+        if: ${{ inputs.conda-package }}
         with:
           name: ${{ env.CONDA_ARTIFACT_NAME }}
           path: ${{ steps.publish-conda-package.outputs.paths }}
+        
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        if: ${{ inputs.pypi-package }}
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
+          packages-dir: ${{ env.PYTHON_ARTIFACT_DIR }}
     
   upload-artifact:
     name: Upload artifact with tarball and built packages
