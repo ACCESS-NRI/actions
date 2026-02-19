@@ -7,8 +7,7 @@ Perform a version sanity check based on versioning scheme and previous version.
 | Name | Type | Description | Required | Default | Example |
 | ---- | ---- | ----------- | -------- | ------- | ------- |
 | `versioning-scheme` | `string` | The type of [versioning scheme](#versioning-schemes) used, not including any prefix. | YES | N/A | `semver`, `semver-major-minor` |
-| `version` | `string` | The version string to perform the sanity check on, including any prefix. If not provided and this action was run on a tag push, `version` is set to `${{github.ref_name}}`.
-| NO | `${{github.ref_name}}` | `1.2.5`, `v1.0`  |
+| `version` | `string` | The version string to perform the sanity check on, including any prefix. If not provided and this action was run on a tag push, `version` is set to `${{github.ref_name}}`. | NO | `${{github.ref_name}}` | `1.2.5`, `v1.0`  |
 | `previous-version` | `string` | The previous version used for version sanity check, including any prefix. If not provided, `previous-version` is set through the [latest tag](#latest-tag). | NO | [Latest tag](#latest-tag) | `1.2.5`, `v1.0`  |
 | `prefix` | `string` | Any prefix to the `versioning-scheme` included in the `version` string. | NO | N/A | `v`, `dev`  |
 
