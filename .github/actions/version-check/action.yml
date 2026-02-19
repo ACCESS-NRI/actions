@@ -5,38 +5,60 @@ inputs:
   versioning-scheme:
     required: true
     description: |
-      The type of versioning scheme used. Currently supports:
+      The type of versioning scheme used, not including
+      any prefix. 
+
+      Currently supports:
       'semver': 'MAJOR.MINOR.PATCH'
       'semver-major-minor': 'MAJOR.MINOR'
+
+      For example, if the full format is 'vMAJOR.MINOR', the
+      versioning scheme should be set to 'semver-major-minor'.
   version:
     required: false
     description: |
       The version string to perform the sanity check on. 
+      This should be the full string including any prefix (e.g., 'v1.2.3').
       If not provided and this action was run on a tag push, 
       it is set to github.ref_name.
   previous-version:
     required: false
     description: |
       The previous version used for version sanity check. 
+      This should be the full string including any prefix (e.g., 'v1.2.3').
       If not provided, it is set based on the repository latest tag(s).
+  prefix:
+    required: false
+    description: |
+      Any prefix to the versioning-scheme included in the version string.
+      For example, for a version string 'v1.2.3', the prefix should be set to 'v'. 
+      This prefix is taken into account for version string match, but it will be
+      dropped for version sanity check against the previous version. 
 runs:
   using: composite
   steps:
     # Make sure that versioning scheme is among the supported ones
+    # and set its format string
     - name: Check versioning scheme
       shell: bash
+      id: check-versioning-scheme
       run: |
         supported_versioning_schemes=(
           semver
           semver-major-minor
         )
-        for scheme in "${supported_versioning_schemes[@]}"; do
-          if [[ "${{ inputs.versioning-scheme }}" == "$scheme" ]]; then
-            exit 0
-          fi
-        done
-        echo "::error::Versioning scheme '${{ inputs.versioning-scheme }}' is not supported. Chose one of: ${supported_versioning_schemes[*]}"
-        exit 1
+        case '${{ inputs.versioning-scheme }}' in
+          semver)
+            format='MAJOR.MINOR.PATCH'
+            ;;
+          semver-major-minor)
+            format='MAJOR.MINOR'
+            ;;
+          *)
+            echo "::error::Versioning scheme '${{ inputs.versioning-scheme }}' is not supported. Chose one of: ${supported_versioning_schemes[*]}"
+            exit 1
+        esac
+        echo "versioning-scheme-format=$format" >> $GITHUB_OUTPUT
 
     - name: Set version
       id: set-version
@@ -62,9 +84,9 @@ runs:
       shell: bash
       run: |
         if [ "${{ inputs.versioning-scheme }}" == "semver" ]; then
-          version_regex='^[0-9]+\.[0-9]+\.[0-9]+$'
+          version_regex='^${{ inputs.prefix }}[0-9]+\.[0-9]+\.[0-9]+$'
         elif [ "${{ inputs.versioning-scheme }}" == "semver-major-minor" ]; then
-          version_regex='^[0-9]+\.[0-9]+$'
+          version_regex='^${{ inputs.prefix }}[0-9]+\.[0-9]+$'
         fi
         echo "version_regex=$version_regex" >> $GITHUB_OUTPUT
     
@@ -75,7 +97,9 @@ runs:
       shell: bash
       run: |
         if [[ ! "$VERSION" =~ $VERSION_REGEX ]]; then
-            echo "::error::New version '$VERSION' does not match the expected format for versioning scheme '${{ inputs.versioning-scheme }}'."
+            echo "::error::New version '$VERSION' does not match the expected" \
+                 "${{ inputs.prefix && ' prefixed' || '' }} '${{ inputs.versioning-scheme }}' format: " \
+                 "'${{ inputs.prefix }}${{ steps.check-versioning-scheme.outputs.versioning-scheme-format }}'."
             exit 1
         fi
     
@@ -123,15 +147,15 @@ runs:
     - name: Sanity check against previous version
       if: steps.set-previous-version.outputs.previous-version != ''
       shell: bash
-      env:
-        VERSION: '${{ steps.set-version.outputs.version }}'
-        VERSION_REGEX: '${{ steps.set-version-regex.outputs.version_regex }}'
-        PREVIOUS_VERSION: '${{ steps.set-previous-version.outputs.previous-version }}'
-        VERSIONING_SCHEME: '${{ inputs.versioning-scheme }}'
       run: |
-        if [[ "$VERSIONING_SCHEME" == semver* ]]; then
-          IFS='.' read -r major minor patch <<< "$VERSION"
-          IFS='.' read -r previous_major previous_minor previous_patch <<< "$PREVIOUS_VERSION"
+        # Remove prefix from VERSION and PREVIOUS_VERSION for the sanity check
+        version='${{ steps.set-version.outputs.version }}'
+        version="${version#${{ inputs.prefix }}}"
+        previous_version='${{ steps.set-previous-version.outputs.previous-version }}'
+        previous_version="${previous_version#${{ inputs.prefix }}}"
+        if [[ '${{ inputs.versioning-scheme }}' == semver* ]]; then
+          IFS='.' read -r major minor patch <<< "$version"
+          IFS='.' read -r previous_major previous_minor previous_patch <<< "$previous_version"
           # If patch is empty (i.e., semver-major-minor scheme), set patch and previous_patch to 0
           # to allow easier comparison
           if [ -z "$patch" ]; then
@@ -144,14 +168,14 @@ runs:
             (( major == previous_major && minor > previous_minor )) || \
             (( major == previous_major && minor == previous_minor && patch > previous_patch ))
           ); then
-            echo "::error::New version '$VERSION' must be greater than previous version '$PREVIOUS_VERSION'."
+            echo "::error::New version '$version' must be greater than previous version '$previous_version'."
             exit 1
           fi
           # Make sure there are no jumps between version and previous version
           if (( major > previous_major + 1 )) || \
             (( minor > previous_minor + 1 )) || \
             (( patch > previous_patch + 1 )); then
-            echo "::error::New version '$VERSION' contains jumps from previous version '$PREVIOUS_VERSION'."
+            echo "::error::New version '$version' contains jumps from previous version '$previous_version'."
             exit 1
           fi
         fi
