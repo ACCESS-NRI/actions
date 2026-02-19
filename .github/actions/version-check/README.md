@@ -18,18 +18,18 @@ Perform a version sanity check based on versioning scheme and previous version.
 | `semver` | `MAJOR.MINOR.PATCH` | [`semver` scheme checks](#semver-scheme) | [Semantic Versioning](https://semver.org/) scheme with `MAJOR`, `MINOR` and `PATCH` versions |
 | `semver-major-minor` | `MAJOR.MINOR` | [`semver-major-minor` scheme checks](#semver-major-minor-scheme) | A variation of [Semantic Versioning](https://semver.org/) scheme, with only `MAJOR` and `MINOR` versions |
 
-If a `prefix` is present, the versioning scheme is the part of the `version` string without `prefix`.
+If a `prefix` is specified, the versioning scheme is defined as the portion of the `version` string that follows the `prefix`.
 
 
 ### Sanity checks performed
 #### `semver` scheme
-1. `version` matches the `semver` format, including any `prefix`: `<prefix>[0-9]+.[0-9]+.[0-9]+`
-2. There are no jumps from `previous-version` to `version` and `version > previous-version`. 
+1. `version` matches the `semver` versioning format, including any optional `prefix`: `<prefix>[0-9]+.[0-9]+.[0-9]+`
+2. There are no jumps from `previous-version` to `version` and `version` is strictly greater than `previous-version`.<br>
    For this check, `prefix` is not considered and gets stripped from `version` and `previous-version` before performing the check.
 
 #### `semver-major-minor` scheme
-1. `version` matches the `semver-major-minor` format, including any `prefix`: `<prefix>[0-9]+.[0-9]+`
-2. There are no jumps from `previous-version` to `version` and `version > previous-version`.
+1. `version` matches the `semver-major-minor` versioning format, including any optional `prefix`: `<prefix>[0-9]+.[0-9]+`
+2. There are no jumps from `previous-version` to `version` and `version` is strictly greater than `previous-version`.<br>
    For this check, `prefix` is not considered and gets stripped from `version` and `previous-version` before performing the check.
 
 
@@ -40,7 +40,7 @@ If `previous-version` is not provided, it is inferred as follows:
 
 If no suitable `previous-version` can be determined, no sanity check against a previous version is performed.
 
-> [!NOTE]
+> [!IMPORTANT]
 > If a `prefix` is provided, it is still considered when inferring the `previous-version`.
 
 ## Examples
