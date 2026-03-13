@@ -5,11 +5,8 @@ on:
     branches:
       - main
     paths:
-      - '.github/actions/setup-ssh/**'
+      - '.github/actions/setup-ssh/action.yml'
       - '.github/workflows/test-setup-ssh.yml'
-  push: 
-    branches:
-      - davide/update_setup_ssh
 
 env:
     TESTED_ACTION: "setup-ssh"
@@ -169,3 +166,31 @@ jobs:
       - name: Cleanup SSH server
         if: always()
         run: docker rm -f test-ssh-server 2>/dev/null || true
+    
+  # To test with the hosts input we need a real world scenario with a real SSH server, 
+  # so we cannot use the same ephemeral SSH keys generated for the previous job.
+  test-real-host:
+    name: Test real host with passphrase
+    runs-on: ubuntu-latest
+    environment: test-setup-ssh
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run action
+        id: run-action
+        uses: ./.github/actions/setup-ssh
+        with: 
+          hosts: ${{ secrets.HOST }}
+          private-key: "${{ secrets.SSH_KEY }}"
+          private-key-passphrase: "${{ secrets.PASSPHRASE }}"
+      
+      # We try to connect with '-o StrictHostKeyChecking=yes' to verify that the SSH key is
+      # correctly added to the known_hosts
+      - name: Verify SSH connection
+        run: |
+          ssh -vvv \
+            -i '${{ steps.run-action.outputs.private-key-path }}' \
+            -o StrictHostKeyChecking=yes \
+            ${{ secrets.USER }}@${{ secrets.HOST }} \
+            exit 0
