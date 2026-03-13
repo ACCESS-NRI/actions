@@ -11,6 +11,9 @@ inputs:
     required: false
     description: name of ephemeral generated private key file
     default: 'priv.key'
+  private-key-passphrase:
+    required: false
+    description: Passphrase for the private key
 outputs:
   private-key-path:
     value: ${{ steps.pk.outputs.path }}
@@ -33,6 +36,47 @@ runs:
         echo "$KEY" > ~/.ssh/$KEY_NAME
         chmod 600 ~/.ssh/$KEY_NAME
         echo "path=~/.ssh/$KEY_NAME" >> $GITHUB_OUTPUT
+    - name: Check passphrase
+      shell: bash
+      env:
+        PASSPHRASE: ${{ inputs.private-key-passphrase }}
+        KEY_PATH: ${{ steps.pk.outputs.path }}
+      run: |
+        # Try to decrypt the private key with the provided passphrase (if any)
+        if ! ssh-keygen -y -P "$PASSPHRASE" -f "$KEY_PATH" &> /dev/null; then
+          # If no passphrase is provided, warn that the private key might need one
+          if [[ -z "$PASSPHRASE" ]]; then
+            echo "::warning::The provided 'private-key' is passphrase-protected, but no 'private-key-passphrase' was provided. SSH commands may fail."
+          else
+            # If the passphrase is provided then it is incorrect. Fail with an error
+            echo "::error::The provided 'private-key-passphrase' is incorrect for the provided 'private-key'."
+            exit 1
+          fi
+        fi
+
+    # For security reasons, ssh-add doesn't allow to pass the passphrase from stdin,
+    # therefore we must use expect (https://gist.github.com/matthiasbalke/f0abe1e6c18704f086389009075c645e)
+    - name: Add passphrase to ssh-agent
+      if: inputs.private-key-passphrase != ''
+      shell: bash
+      env:
+        PASSPHRASE: ${{ inputs.private-key-passphrase }}
+        KEY_PATH: ${{ steps.pk.outputs.path }}
+      run: |
+        # Download and install expect
+        sudo apt-get install -y expect
+        # Start ssh-agent and add the private key with the passphrase
+        eval "$(ssh-agent -s)"
+        expect -c "
+          spawn ssh-add \"$KEY_PATH\"
+          expect \"Enter passphrase for *\"
+          send \"${PASSPHRASE}\n\"
+          expect \"Identity added: *\"
+        "
+        # Export SSH_AUTH_SOCK and SSH_AGENT_PID to the environment so subsequent steps
+        # in the job using this action can use the same ssh-agent
+        echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+        echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
     - name: Add to known_hosts
       if: inputs.hosts != ''
       shell: bash
