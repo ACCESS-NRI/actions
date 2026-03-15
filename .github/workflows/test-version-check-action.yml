@@ -157,17 +157,70 @@ jobs:
               Test action for semver-major-minor versioning scheme when the format is not correct.
             inputs: >-
                 "versioning-scheme": "semver-major-minor",
-                "version": "2.1.0"
+                "version": "2.1.0",
+                "previous-version": "2.0"
             outcome: "failure"
           - id: 12
             label: "Failure wrong versioning scheme"
             description: |
               Test action when a non-supported versioning scheme is provided
             inputs: >-
-                "versioning-scheme": "unsupported-scheme",
+                "versioning-scheme": "unsupported-scheme"
+            outcome: "failure"
+          - id: 13
+            label: "Success prefix handling"
+            description: |
+              Test action when a prefix is provided both in version and previous-version,
+              and the version string matches the expected format.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "version": "v2.1.1",
+                "previous-version": "v2.1.0",
+                "prefix": "v"
+            outcome: "success"
+          - id: 14
+            label: "Success prefix handling, previous-version with no prefix"
+            description: |
+              Test action when a prefix is provided only in version,
+              and the version string matches the expected format.
+            inputs: >-
+                "versioning-scheme": "semver-major-minor",
+                "version": "v1.5",
+                "previous-version": "1.4",
+                "prefix": "v"
+            outcome: "success"
+          - id: 15
+            label: "Failure wrong prefix"
+            description: |
+              Test action when a prefix is provided but it doesn't match
+              the one in version.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "version": "v2.1.1",
+                "previous-version": "2.1.0",
+                "prefix": "x"
+            outcome: "failure"
+          - id: 16
+            label: "Failure no prefix but version has prefix"
+            description: |
+              Test action when a prefix is not provided but the version string has a prefix.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "version": "p1.1.4",
+                "previous-version": "1.1.3"
+            outcome: "failure"
+          - id: 17
+            label: "Failure prefix provided but version has no prefix"
+            description: |
+              Test action when a prefix is provided but the version string has no prefix.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "version": "1.1.4",
+                "previous-version": "1.1.3",
+                "prefix": "some"
             outcome: "failure"
           # Tests to be uncommented only when the workflow is triggered by a tag push
-        #   - id: 13
+        #   - id: 18
         #     label: "Version not provided"
         #     description: |
         #       Test action for version not provided and not within a git tag.
@@ -176,7 +229,7 @@ jobs:
         #         "versioning-scheme": "semver",
         #         "previous-version": "${{needs.set-versions.outputs.test-previous-version}}"
         #     outcome: "success"
-        #   - id: 14
+        #   - id: 19
         #     label: "Previous version not provided and version provided"
         #     description: |
         #       Test action for previous-version not provided and version provided.
@@ -186,7 +239,7 @@ jobs:
         #         "versioning-scheme": "semver",
         #         "version": "${{needs.set-versions.outputs.test-version}}"
         #     outcome: "success"
-        #   - id: 15
+        #   - id: 20
         #     label: "Previous version and version not provided"
         #     description: |
         #       Test action for both previous-version and version not provided.
