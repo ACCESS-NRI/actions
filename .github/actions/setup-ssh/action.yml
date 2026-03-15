@@ -11,6 +11,9 @@ inputs:
     required: false
     description: name of ephemeral generated private key file
     default: 'priv.key'
+  private-key-passphrase:
+    required: false
+    description: Passphrase for the private key
 outputs:
   private-key-path:
     value: ${{ steps.pk.outputs.path }}
@@ -30,9 +33,51 @@ runs:
         KEY: ${{ inputs.private-key }}
         KEY_NAME: ${{ inputs.private-key-name }}
       run: |
-        echo "$KEY" > ~/.ssh/$KEY_NAME
-        chmod 600 ~/.ssh/$KEY_NAME
-        echo "path=~/.ssh/$KEY_NAME" >> $GITHUB_OUTPUT
+        path="$HOME/.ssh/$KEY_NAME"
+        echo "$KEY" > "$path"
+        chmod 600 "$path"
+        echo "path=$path" >> $GITHUB_OUTPUT
+    - name: Check passphrase
+      shell: bash
+      env:
+        PASSPHRASE: "${{ inputs.private-key-passphrase }}"
+        KEY_PATH: "${{ steps.pk.outputs.path }}"
+      run: |
+        # Try to decrypt the private key with the provided passphrase (if any)
+        if ! ssh-keygen -y -P "$PASSPHRASE" -f "$KEY_PATH" > /dev/null; then
+          # If the decryption fail, it means that either the private key is passphrase-protected
+          # but no passphrase was provided, or the provided passphrase is incorrect
+          if [[ -z "$PASSPHRASE" ]]; then
+            msg="The provided 'private-key' is passphrase-protected, but no 'private-key-passphrase' was provided."
+          else
+            msg="The provided 'private-key-passphrase' is incorrect for the provided 'private-key'."
+          fi
+          echo "::error::$msg"
+          exit 1
+        fi
+    # For security reasons, ssh-add doesn't allow to pass the passphrase from stdin,
+    # therefore we must use expect (https://gist.github.com/matthiasbalke/f0abe1e6c18704f086389009075c645e)
+    - name: Add passphrase to ssh-agent
+      if: inputs.private-key-passphrase != ''
+      shell: bash
+      env:
+        PASSPHRASE: ${{ inputs.private-key-passphrase }}
+        KEY_PATH: ${{ steps.pk.outputs.path }}
+      run: |
+        # Download and install expect
+        sudo apt-get install -y expect
+        # Start ssh-agent and add the private key with the passphrase
+        eval "$(ssh-agent -s)"
+        expect -c "
+          spawn ssh-add \"$KEY_PATH\"
+          expect \"Enter passphrase for *\"
+          send \"${PASSPHRASE}\r\"
+          expect \"Identity added: *\"
+        "
+        # Export SSH_AUTH_SOCK and SSH_AGENT_PID to the environment so subsequent steps
+        # in the job using this action can use the same ssh-agent
+        echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+        echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
     - name: Add to known_hosts
       if: inputs.hosts != ''
       shell: bash

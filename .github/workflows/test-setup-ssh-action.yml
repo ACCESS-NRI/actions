@@ -1,0 +1,196 @@
+# Workflow to test the setup-ssh action
+name: Test setup-ssh action
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/actions/setup-ssh/action.yml'
+      - '.github/workflows/test-setup-ssh.yml'
+
+env:
+    TESTED_ACTION: "setup-ssh"
+    PRIVATE_KEY: "/tmp/id_test"
+    PRIVATE_KEY_NO_PASSPHRASE: "/tmp/id_test_no_passphrase"
+
+jobs:
+  # Generate ephemeral SSH keys for testing
+  generate-ssh-keys:
+    name: Generate SSH keys
+    runs-on: ubuntu-latest
+    outputs:
+      private-key: ${{ steps.gen-keys.outputs.private-key }}
+      private-key-no-passphrase: ${{ steps.gen-keys.outputs.private-key-no-passphrase }}
+      public-key: ${{ steps.gen-keys.outputs.public-key }}
+      public-key-no-passphrase: ${{ steps.gen-keys.outputs.public-key-no-passphrase }}
+      passphrase: ${{ steps.set-passphrase.outputs.passphrase }}
+    steps:
+      # We need to set a passphrase as an output instead of an environment variable
+      # because environment variables are not supported in the matrix strategy
+      - name: Set passphrase
+        id: set-passphrase
+        run: echo "passphrase=passphrase" >> $GITHUB_OUTPUT
+
+      - name: Generate SSH key pair
+        id: gen-keys
+        run: |
+          # Generate an SSH key pair with passphrase
+          ssh-keygen -N "${{ steps.set-passphrase.outputs.passphrase }}" -f "${{ env.PRIVATE_KEY }}"
+          # Generate an SSH key pair with no passphrase
+          ssh-keygen -N "" -f "${{ env.PRIVATE_KEY_NO_PASSPHRASE }}"
+          # Use multiline GitHub output for private keys
+          # Passphrase-protected key
+          echo "private-key<<EOF" >> $GITHUB_OUTPUT
+          cat "${{ env.PRIVATE_KEY }}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "public-key=$(cat ${{ env.PRIVATE_KEY }}.pub)" >> $GITHUB_OUTPUT
+          # No-passphrase key
+          echo "private-key-no-passphrase<<EOF" >> $GITHUB_OUTPUT
+          cat "${{ env.PRIVATE_KEY_NO_PASSPHRASE }}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "public-key-no-passphrase=$(cat ${{ env.PRIVATE_KEY_NO_PASSPHRASE }}.pub)" >> $GITHUB_OUTPUT
+
+  # We cannot use jenseng/dynamic-uses to run the action because it doesn't handle multiline inputs (like the SSH key)
+  # so we need to change the matrix fields to contain all inputs
+  test-action:
+    name: Test ${{ matrix.id }} - ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    needs: generate-ssh-keys
+    env:
+      TEST_USERNAME: "test"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: 1
+            label: "Passphrase"
+            description: |
+              Test action with SSH key with passphrase.
+            input-hosts: ""
+            input-private-key: "${{ needs.generate-ssh-keys.outputs.private-key }}"
+            input-private-key-name: "id_test"
+            input-private-key-passphrase: "${{ needs.generate-ssh-keys.outputs.passphrase }}"
+            outcome: "success"
+          - id: 2
+            label: "No passphrase"
+            description: |
+              Test action with SSH key without passphrase.
+            input-hosts: ""
+            input-private-key: "${{ needs.generate-ssh-keys.outputs.private-key-no-passphrase }}"
+            input-private-key-name: "id_test"
+            input-private-key-passphrase: ""
+            outcome: "success"
+          - id: 3
+            label: "Failure - wrong passphrase provided"
+            description: |
+              Test action with wrong passphrase provided.
+            input-hosts: ""
+            input-private-key: "${{ needs.generate-ssh-keys.outputs.private-key }}"
+            input-private-key-name: "id_test"
+            input-private-key-passphrase: "wrong_passphrase"
+            outcome: "failure"
+          - id: 4
+            label: "Failure - no passphrase provided"
+            description: |
+              Test action with no passphrase provided when needed.
+            input-hosts: ""
+            input-private-key: "${{ needs.generate-ssh-keys.outputs.private-key }}"
+            input-private-key-name: "id_test"
+            input-private-key-passphrase: ""
+            outcome: "failure"
+          - id: 5
+            label: "Passphrase provided when not needed"
+            description: |
+              Test action with passphrase provided when not needed.
+            input-hosts: ""
+            input-private-key: "${{ needs.generate-ssh-keys.outputs.private-key-no-passphrase }}"
+            input-private-key-name: "id_test"
+            input-private-key-passphrase: "${{ needs.generate-ssh-keys.outputs.passphrase }}"
+            outcome: "success"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Description
+        run: echo "${{ matrix.description }}"
+      
+      # We spawn a test SSH server using the docker-openssh-server docker image 
+      # (https://github.com/linuxserver/docker-openssh-server) in detached mode
+      # We set the authorized keys by creating a directory containing the public SSH keys and
+      # using the PUBLIC_KEY_DIR env variable
+      - name: Spawn a test SSH server
+        run: |
+          # Create a directory for the authorized keys
+          authorized_keys_dir=$(mktemp -d)
+          cat > "$authorized_keys_dir/id_test.pub" <<< "${{ needs.generate-ssh-keys.outputs.public-key }}"
+          cat > "$authorized_keys_dir/id_test-no-passphrase.pub" <<< "${{ needs.generate-ssh-keys.outputs.public-key-no-passphrase }}"
+          docker run \
+            -d \
+            --name test-ssh-server \
+            -p 2222:2222 \
+            -v "$authorized_keys_dir:/pubkeys:ro" \
+            -e PUBLIC_KEY_DIR=/pubkeys \
+            -e USER_NAME=${{ env.TEST_USERNAME }} \
+            lscr.io/linuxserver/openssh-server:latest
+          sleep 2 # Wait for the SSH server to start
+
+      # We cannot use jenseng/dynamic-uses because it doesn't handle multiline inputs (like the SSH key)
+      - name: Run action
+        id: run-action
+        continue-on-error: true
+        uses: ./.github/actions/setup-ssh
+        with: 
+          hosts: "${{ matrix.input-hosts }}"
+          private-key: "${{ matrix.input-private-key }}"
+          private-key-name: "${{ matrix.input-private-key-name }}"
+          private-key-passphrase: "${{ matrix.input-private-key-passphrase }}"
+
+      - name: Verify failed action outcome
+        if: matrix.outcome == 'failure'
+        run: |
+          if [[ '${{ steps.run-action.outcome }}' == failure ]]; then
+            exit 0
+          fi
+          exit 1
+
+      - name: Verify SSH connection
+        if: matrix.outcome == 'success'
+        run: |
+          ssh -vvv \
+            -i '${{ steps.run-action.outputs.private-key-path }}' \
+            -p 2222 \
+            -o StrictHostKeyChecking=${{ matrix.input-hosts == '' && 'no' || 'yes' }} \
+            ${{ env.TEST_USERNAME }}@localhost \
+            exit 0
+
+      - name: Cleanup SSH server
+        if: always()
+        run: docker rm -f test-ssh-server 2>/dev/null || true
+    
+  # To test with the hosts input we need a real world scenario with a real SSH server, 
+  # so we cannot use the same ephemeral SSH keys generated for the previous job.
+  test-real-host:
+    name: Test real host with passphrase
+    runs-on: ubuntu-latest
+    environment: test-setup-ssh
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run action
+        id: run-action
+        uses: ./.github/actions/setup-ssh
+        with: 
+          hosts: ${{ secrets.HOST }}
+          private-key: "${{ secrets.SSH_KEY }}"
+          private-key-passphrase: "${{ secrets.PASSPHRASE }}"
+      
+      # We try to connect with '-o StrictHostKeyChecking=yes' to verify that the SSH key is
+      # correctly added to the known_hosts
+      - name: Verify SSH connection
+        run: |
+          ssh -vvv \
+            -i '${{ steps.run-action.outputs.private-key-path }}' \
+            -o StrictHostKeyChecking=yes \
+            ${{ secrets.USER }}@${{ secrets.HOST }} \
+            exit 0
