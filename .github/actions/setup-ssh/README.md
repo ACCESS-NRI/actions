@@ -3,7 +3,7 @@
 This action sets up `ssh` to use a given key, and adds to `~/.ssh/known_hosts`.
 
 > [!IMPORTANT]  
-> If the `private-key-passphrase` input is not provided, the SSH key (`private-key`) must have been created with no (empty) passphrase, otherwise SSH authentication will likely fail.
+> If the `private-key-passphrase` input is not provided, the SSH key (`private-key`) must have been created with no (empty) passphrase, otherwise SSH authentication will fail.
 
 ## Inputs
 
