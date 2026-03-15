@@ -45,7 +45,8 @@ runs:
       run: |
         # Try to decrypt the private key with the provided passphrase (if any)
         if ! ssh-keygen -y -P "$PASSPHRASE" -f "$KEY_PATH" > /dev/null; then
-          # If no passphrase is provided, warn that the private key might need one
+          # If the decryption fail, it means that either the private key is passphrase-protected
+          # but no passphrase was provided, or the provided passphrase is incorrect
           if [[ -z "$PASSPHRASE" ]]; then
             msg="The provided 'private-key' is passphrase-protected, but no 'private-key-passphrase' was provided."
           else
