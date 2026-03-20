@@ -24,7 +24,7 @@ However, it does return job failure/success based on the result of the schema va
 ```yaml
 jobs:
   validate:
-    uses: access-nri/actions/.github/workflows/validate-json@main
+    uses: access-nri/actions/.github/workflows/validate-json.yml@main
     with:
       src: 'config'
 ```
