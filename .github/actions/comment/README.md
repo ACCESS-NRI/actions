@@ -14,7 +14,8 @@ If a token is provided, the comment will be issued as the owner of the token (or
 
 | Name | Type | Description | Required | Default | Example |
 | ---- | ---- | ----------- | -------- | ------- | ------- |
-| `message` | `string` | The comment body. Supports Markdown format. | NO | N/A | `Hello this is a comment from PR 20` |
+| `message` | `string` | The comment body. Supports Markdown format. Cannot be used together with `message-file`. | NO | N/A | `Hello this is a comment from PR 20` |
+| `message-file` | `string` | Path to a text file whose content is used as the comment body. Supports Markdown format. Cannot be used together with `message`.  | NO | N/A | `comment-file.txt`, `comment.md` |
 | `number` | `number` | The Pull Request / Issue Number that will be commented on.<br>If `number` is not provided, the following rules will apply:<br>- if `url` is provided, `number` will be inferred from the url;<br>- if `url` is not provided and the action is called within a `pull_request` or `issue` event, `number` will default to the PR/Issue associated with the event;<br>- in any other case, an error will be thrown.<br>Cannot be used together with `url`.| NO | N/A | `20` |
 | `label` | `string` | A label to identify the comment (useful for editing or deleting a specific comment). If `label` is provided together with `comment-id` or a `url` containing the COMMENT_ID portion, `label` will be ignored. | NO | Comment date in the format `YYYY-MM-DDTHH:MM:SS` | `my-new-label` |
 | `comment-id` | `number` | The ID of the comment to edit or delete. If not provided, a new comment is created. If `comment-id` is provided together with `label`, `label` will be ignored. Cannot be used together with a `url` containing the COMMENT_ID portion. | NO | N/A | `2650933115` |      
@@ -198,4 +199,24 @@ In the example above, the minimum token's permissions for the commented repo nee
     <li><code>contents: read</code></li>
     <li><code>pull-requests: write</code></li>
 </ul>
+</details>
+
+
+<details>
+<summary><b>Add a comment using a file content as comment body</b></summary>
+
+```yaml
+# ...
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+    - uses: actions/checkout@6
+
+    - uses: access-nri/actions/.github/actions/comment@main
+      with:
+        message-file: ./path/to/custom/message/files
+```
 </details>

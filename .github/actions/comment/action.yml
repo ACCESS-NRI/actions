@@ -4,7 +4,13 @@ inputs:
   message:
     type: string
     required: false
-    description: The comment body. Supports Markdown format.
+    description: |
+      The comment body. Supports Markdown format. Cannot be used together with `message-file`.
+  message-file:
+    type: string
+    required: false
+    description: |
+      Path to a text file whose content is used as the comment body. Supports Markdown format. Cannot be used together with `message`.
   number:
     type: number
     required: false
@@ -66,7 +72,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
 
@@ -77,19 +83,36 @@ runs:
       id: inputs-check
       # We place the message to a temporary file to avoid issues with special characters (e.g. new lines, quotes, etc.)
       run: |
-        # Check MESSAGE
-        msg_file=$(mktemp)
-        cat > "$msg_file" << '_UNUSUAL_EOF'
+        # Check MESSAGE and MESSAGE-FILE
+        if [[ '${{ inputs.delete }}' != 'true' ]]; then
+          # If 'delete' is not true, make sure that exactly one between MESSAGE and MESSAGE-FILE is set
+          if [[ -z '${{ inputs.message }}' && -z '${{ inputs.message-file }}' ]]; then
+            echo "::error::Please provide a message or message-file for the comment."
+            exit 1
+          elif [[ -n '${{ inputs.message }}' && -n '${{ inputs.message-file }}' ]]; then
+            echo "::error::Both 'message' and 'message-file' inputs are set. Please provide only one of them."
+            exit 1
+          fi
+          msg_file='${{ inputs.message-file }}'
+          if [[ -z "$msg_file" ]]; then
+            # If message-file is not provided, create a temporary file and write the message input to it
+            msg_file=$(mktemp)
+            cat > "$msg_file" << '_UNUSUAL_EOF'
         ${{ inputs.message }}
         _UNUSUAL_EOF
-        if [[ -z "$(cat $msg_file)" && ${{ inputs.delete }} != 'true' ]]; then
-          echo "::error::Please provide a message for the comment."
-          exit 1
+          elif [[ ! -f "$msg_file" ]]; then
+            echo "::error::The provided message-file '$msg_file' does not exist."
+            exit 1
+          fi
+          echo "=== START OF MESSAGE ==="
+          cat $msg_file
+          echo "=== END OF MESSAGE ==="
+          echo "msg_file=$msg_file" >> $GITHUB_OUTPUT
+        elif [[ -n '${{ inputs.message }}' || -n '${{ inputs.message-file }}' ]]; then
+          # If 'delete' is true and any of 'message' or 'message-file' is provided, warn that they won't
+          # be used
+          echo "::warning::The 'message' and 'message-file' inputs will be ignored when 'delete' is set to true."
         fi
-        echo "=== START OF MESSAGE ==="
-        cat $msg_file
-        echo "=== END OF MESSAGE ==="
-        echo "msg_file=$msg_file" >> $GITHUB_OUTPUT
 
         # Parse URL
         if [[ -n '${{ inputs.url }}' ]]; then
