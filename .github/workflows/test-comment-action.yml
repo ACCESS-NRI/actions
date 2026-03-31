@@ -1,0 +1,375 @@
+# Workflow to test the comment action
+name: Test comment action
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/actions/comment/action.yml'
+      - '.github/workflows/test-comment-action.yml'
+
+env:
+  TESTED_ACTION: "comment"
+
+jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      comment-url: ${{ steps.create-setup-comment.outputs.comment-url }}
+      comment-id: ${{ steps.create-setup-comment.outputs.comment-id }}
+      comment-to-delete-id: ${{ steps.create-comment-to-delete.outputs.comment-id }}
+      comment-to-modify-id: ${{ steps.create-comment-to-modify.outputs.comment-id }}
+    steps:
+      - name: Create a setup comment
+        id: create-setup-comment
+        run: |
+          output=$(
+            gh api \
+            --method POST \
+            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            -f body='Setup message added by the test-comment-action.yml workflow.'
+          )
+          comment_url=$(jq -r '.html_url' <<< $output)
+          echo "comment-url=$comment_url" >> "$GITHUB_OUTPUT"
+          comment_id="${comment_url##*-}"
+          echo "comment-id=$comment_id" >> "$GITHUB_OUTPUT"
+      - name: Create a comment to delete
+        id: create-comment-to-delete
+        run: |
+          output=$(
+            gh api \
+            --method POST \
+            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            -f body='Comment to delete added by the test-comment-action.yml workflow.<!-- comment-action @@@comment-to-delete@@@ -->'
+          )
+          comment_url=$(jq -r '.html_url' <<< $output)
+          comment_id="${comment_url##*-}"
+          echo "comment-id=$comment_id" >> "$GITHUB_OUTPUT"
+      - name: Create a comment to modify
+        id: create-comment-to-modify
+        run: |
+          output=$(
+            gh api \
+            --method POST \
+            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            -f body='Comment to modify added by the test-comment-action.yml workflow.<!-- comment-action @@@modify@@@ -->'
+          )
+          comment_url=$(jq -r '.html_url' <<< $output)
+          comment_id="${comment_url##*-}"
+          echo "comment-id=$comment_id" >> "$GITHUB_OUTPUT"
+
+# Since this workflow is triggered on pull_request, we can test that the action works
+# as expected also when run in a workflow triggered by a pull request
+  test-action:
+    name: Test ${{ matrix.id }} - ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    needs: [setup]
+    permissions:
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: 1
+            label: "PR-triggered workflow"
+            description: |
+              Test action for a comment on a PR when the workflow is triggered on Pull Request.
+            inputs: >-
+                "message": "Test comment added by the test-comment-action.yml workflow.",
+                "label": "comment-test-1"
+            outcome: "success"
+            expected:
+              comment-body-pattern: "^Test comment added by the test-comment-action\\.yml workflow\\.<!-- comment-action @@@comment-test-1@@@ -->$"
+              comment-url-pattern: "^https://github\\.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}#issuecomment-[0-9]+$"
+          - id: 2
+            label: "Message-file"
+            description: |
+              Test the message-file input.
+            inputs: >-
+                "message-file": "./test_message_file",
+                "label": "comment-test-2"
+            outcome: "success"
+            expected:
+              comment-body-pattern: "^Test comment added by the test-comment-action\\.yml workflow\\.<!-- comment-action @@@comment-test-2@@@ -->$"
+              comment-url-pattern: "^https://github\\.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}#issuecomment-[0-9]+$"
+          - id: 3
+            label: "number input"
+            description: |
+              Test the number input.
+            inputs: >-
+                "message": "Test message 3",
+                "label": "comment-test-3",
+                "number": "${{ github.event.pull_request.number }}"
+            outcome: "success"
+            expected:
+              comment-body-pattern: "^Test message 3<!-- comment-action @@@comment-test-3@@@ -->$"
+              comment-url-pattern: "^https://github\\.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}#issuecomment-[0-9]+$"
+          - id: 4
+            label: "comment-id"
+            description: |
+              Test the comment-id input.
+            inputs: >-
+                "message": "Test message 4",
+                "comment-id": "${{ needs.setup.outputs.comment-id }}"
+            outcome: "success"
+            expected:
+              comment-body-pattern: "^Test message 4<!-- comment-action @@@[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z@@@ -->$"
+              comment-url-pattern: "^https://github\\.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}#issuecomment-${{ needs.setup.outputs.comment-id }}$"
+          - id: 5
+            label: "repo"
+            description: |
+              Test the repo input.
+            inputs: >-
+                "message": "Test message 5",
+                "label": "comment-test-5",
+                "repo": "${{ github.repository }}"
+            outcome: "success"
+            expected:
+              comment-body-pattern: "^Test message 5<!-- comment-action @@@comment-test-5@@@ -->$"
+              comment-url-pattern: "^https://github\\.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}#issuecomment-[0-9]+$"
+          - id: 6
+            label: "url with comment-id"
+            description: |
+              Test the url input, when url has the comment-id portion.
+            inputs: >-
+                "message": "Test message 6",
+                "url": "${{ needs.setup.outputs.comment-url }}"
+            outcome: "success"
+            expected:
+              comment-body-pattern: "^Test message 6<!-- comment-action @@@[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z@@@ -->$"
+              comment-url-pattern: "^${{ needs.setup.outputs.comment-url }}$"
+          - id: 7
+            label: "url without comment-id"
+            description: |
+              Test the url input, when url does not have the comment-id portion.
+            inputs: >-
+                "message": "Test message 7",
+                "url": "${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}",
+                "label": "comment-test-7"
+            outcome: "success"
+            expected:
+              comment-body-pattern: "^Test message 7<!-- comment-action @@@comment-test-7@@@ -->$"
+              comment-url-pattern: "^https://github\\.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}#issuecomment-[0-9]+$"
+          - id: 8
+            label: "Failure, no message"
+            description: |
+              Test when no message is provided
+            inputs: >-
+                "label": "test"
+            outcome: "failure"
+          - id: 9
+            label: "Failure, message and message-file provided"
+            description: |
+              Test when both message and message-file are provided
+            inputs: >-
+                "message": "Test message",
+                "message-file": "./test_message_file",
+                "label": "test"
+            outcome: "failure"
+          - id: 10
+            label: "Failure, number with url"
+            description: |
+              Test when both number and url are provided
+            inputs: >-
+                "url": "${{ needs.setup.outputs.comment-url }}",
+                "number": "${{ github.event.pull_request.number }}"
+            outcome: "failure"
+          - id: 11
+            label: "Failure, repo with url"
+            description: |
+              Test when both repo and url are provided
+            inputs: >-
+                "url": "${{ needs.setup.outputs.comment-url }}",
+                "repo": "${{ github.repository }}"
+            outcome: "failure"
+          - id: 12
+            label: "Failure, comment-id with url"
+            description: |
+              Test when both comment-id and url with id are provided
+            inputs: >-
+                "url": "${{ needs.setup.outputs.comment-url }}",
+                "comment-id": "${{ needs.setup.outputs.comment-id }}"
+            outcome: "failure"
+          - id: 13
+            label: "Failure, non-existing message-file"
+            description: |
+              Test when the specified message-file does not exist
+            inputs: >-
+                "message-file": "./non-existent-file",
+            outcome: "failure"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Description
+        run: echo "${{ matrix.description }}"
+    
+      - name: Create message file
+        if: contains(matrix.inputs, 'message-file')
+        run: |
+          cat > ./test_message_file <<< 'Test comment added by the test-comment-action.yml workflow.'
+          msg_file='./test_message_file'
+          if [[ ! -f "$msg_file" ]]; then
+            echo "File not found."
+          else
+            echo "File found!"
+          fi
+
+      - name: Test
+        id: test-action
+        continue-on-error: true
+        uses: jenseng/dynamic-uses@8bc24f0360175e710da532c4d19eafdbed489a06 #v1.1.1 - Needed because github context is not supported within step.uses (https://github.com/actions/runner/issues/895)
+        with: 
+          uses: ${{ github.repository }}/.github/actions/${{ env.TESTED_ACTION }}@${{ github.sha }}
+          with: '{ ${{ matrix.inputs }} }'
+    
+      - name: Verify expected outcome
+        if: always()
+        run: |
+          if [[ '${{ matrix.outcome }}' == '${{ steps.test-action.outcome }}' ]]; then
+            exit 0
+          else
+            exit 1
+          fi
+    
+      - name: Check comment url and body
+        if: steps.test-action.outcome == 'success'
+        run: |
+          comment_url='${{ fromJSON(steps.test-action.outputs.outputs).comment-url }}'
+          comment_id="${comment_url##*-}"
+          comment_json=$(
+            GH_TOKEN=${{ github.token }} gh api "repos/${{ github.repository }}/issues/comments/$comment_id"
+          )
+          status=$(jq -r '.status // "200"' <<< "$comment_json")
+          if [[ "$status" == 404 ]]; then
+            echo "::error::Comment $comment_id doesn't seem to exist."
+            exit 1
+          fi
+          # Check Body pattern
+          body=$(jq -r '.body' <<< "$comment_json")
+          expected_body_pattern='${{ matrix.expected.comment-body }}'
+          if [[ ! "$body" =~ $expected_body_pattern ]]; then
+            echo "::error::Comment body '$body' does not match the expected pattern: '$expected_body_pattern'"
+            exit 1
+          fi
+          # Check URL pattern
+          url=$(jq -r '.html_url' <<< "$comment_json")
+          expected_url_pattern='${{ matrix.expected.comment-url-pattern }}'
+          if [[ ! "$url" =~ $expected_url_pattern ]]; then
+            echo "::error::Comment URL '$url' does not match the expected pattern: '$expected_url_pattern'"
+            exit 1
+          fi
+  
+  test-delete:
+    name: Test deletion
+    runs-on: ubuntu-latest
+    needs: setup
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Check comment exists
+        run: |
+          if ! gh api repos/${{ github.repository }}/issues/comments/${{ needs.setup.outputs.comment-to-delete-id }} &>/dev/null; then
+            echo "::error::Comment does not exist."
+            exit 1
+          fi
+
+      - name: Delete comment
+        uses: ./.github/actions/comment
+        with:
+          delete: true
+          comment-id: ${{ needs.setup.outputs.comment-to-delete-id }}
+      
+      - name: Check comment is deleted
+        run: |
+          if gh api repos/${{ github.repository }}/issues/comments/${{ needs.setup.outputs.comment-to-delete-id }} &>/dev/null; then
+            echo "::error::Comment is still present."
+            exit 1
+          fi
+
+  test-modify:
+    name: Test modification
+    runs-on: ubuntu-latest
+    needs: setup
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MODIFIED_MESSAGE: "Modified comment"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Check comment body
+        run: |
+          comment_json=$(
+            gh api "repos/${{ github.repository }}/issues/comments/${{ needs.setup.outputs.comment-to-modify-id }}"
+          )
+          status=$(jq -r '.status // "200"' <<< "$comment_json")
+          if [[ "$status" == 404 ]]; then
+            echo "::error::Comment $comment_id doesn't seem to exist."
+            exit 1
+          fi
+          # Check Body
+          body=$(jq -r '.body' <<< "$comment_json")
+          expected_body='Comment to modify added by the test-comment-action.yml workflow.<!-- comment-action @@@modify@@@ -->'
+          if [[ "$body" != "$expected_body" ]]; then
+            echo "::error::Comment body '$body' does not match the expected body: '$expected_body'"
+            exit 1
+          fi
+
+      - name: Modify comment
+        uses: ./.github/actions/comment
+        with:
+          message: "${{ env.MODIFIED_MESSAGE }}"
+          label: modify
+      
+      - name: Check comment is modified
+        run: |
+          comment_json=$(
+            gh api "repos/${{ github.repository }}/issues/comments/${{ needs.setup.outputs.comment-to-modify-id }}"
+          )
+          status=$(jq -r '.status // "200"' <<< "$comment_json")
+          if [[ "$status" == 404 ]]; then
+            echo "::error::Comment $comment_id doesn't seem to exist."
+            exit 1
+          fi
+          # Check Body
+          body=$(jq -r '.body' <<< "$comment_json")
+          expected_body='${{ env.MODIFIED_MESSAGE }}<!-- comment-action @@@modify@@@ -->'
+          if [[ "$body" != "$expected_body" ]]; then
+            echo "::error::Comment body '$body' does not match the expected body: '$expected_body'"
+            exit 1
+          fi
+
+  cleanup:
+    name: Cleanup messages
+    runs-on: ubuntu-latest
+    needs: [setup, test-action, test-delete, test-modify]
+    if: always()
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Cleanup messages
+        run: |
+          # Get all comment IDs where the body contains the comment-action marker
+          comment_ids=$(
+            gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            --paginate \
+            --jq '.[] | select(.body | contains("<!-- comment-action @@@")) | .id'
+          )
+          for id in $comment_ids; do
+            gh api --method DELETE repos/${{ github.repository }}/issues/comments/$id
+          done
