@@ -85,11 +85,16 @@ runs:
         HOSTS: ${{ inputs.hosts }}
       run: |
         for host in $HOSTS; do
-          # Retry once if ssh-keyscan fails to try avoid transient errors
-          if ! ssh-keyscan $host >> ~/.ssh/known_hosts; then
+          for attempt in {1..5}; do
+            if ssh-keyscan -T 10 $host >> ~/.ssh/known_hosts; then
+              break
+            fi
+            if [[ $attempt -eq 5 ]]; then
+              echo "::error::ssh-keyscan failed for $host after 5 attempts"
+              exit 1
+            fi
             echo "Retrying ssh-keyscan for $host in 5s..."
             sleep 5
-            ssh-keyscan $host >> ~/.ssh/known_hosts
-          fi
+          done
         done
         chmod 600 ~/.ssh/known_hosts
