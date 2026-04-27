@@ -21,7 +21,8 @@ If a token is provided, the comment will be issued as the owner of the token (or
 | `comment-id` | `number` | The ID of the comment to edit or delete. If not provided, a new comment is created. If `comment-id` is provided together with `label`, `label` will be ignored. Cannot be used together with a `url` containing the COMMENT_ID portion. | NO | N/A | `2650933115` |      
 | `repo` | `string` | The repository to comment on, in the format `REPOSITORY_OWNER/REPOSITORY_NAME`. It defaults to the repository where the action is running. Cannot be used together with `url`. | NO | current repo | `ACCESS-NRI/actions` |
 | `url` | `string` | The comment url in the format `https://github.com/REPOSITORY_OWNER/REPOSITORY_NAME/issues/NUMBER#issuecomment-COMMENT_ID`, or the PR/issue url in the form `https://github.com/REPOSITORY_OWNER/REPOSITORY_NAME/issues/NUMBER`. If a comment `url` (containing the COMMENT_ID portion) is provided together with `label`, `label` will be ignored. A comment `url` (containing the COMMENT_ID portion) cannot be used together with `comment-id`. Cannot be used together with `number` or `repo`. | NO | N/A | `https://github.com/ACCESS-NRI/actions/issues/13#issuecomment-2485204240` |
-| `delete` | `boolean` | If set to `true`, it deletes the comment. | NO | `false` | `true` |
+| `delete` | `boolean` | If set to `true`, it deletes the comment. Cannot be used together with `append` | NO | `false` | `true` |
+| `append` | `boolean` | If set to `true`, it appends to the existing comment instead of replacing it. Cannot be used together with `delete` | NO | `false` | `true` |
 | `token` | `string` | A GitHub Token/PAT that allows commenting on the given PR/Issue. Defaults to `github.token`. | NO | `github.token` | `gha_pat_abcds...` |
 
 ## Outputs
