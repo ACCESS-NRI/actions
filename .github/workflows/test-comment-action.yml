@@ -176,6 +176,15 @@ jobs:
             inputs: >-
                 "message-file": "./non-existent-file",
             outcome: "failure"
+          - id: 14
+            label: "Failure, both append and delete inputs provided"
+            description: |
+              Test when both append and delete inputs are provided
+            inputs: >-
+                "message": "Test message",
+                "append": "true",
+                "delete": "true"
+            outcome: "failure"
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -242,7 +251,6 @@ jobs:
   test-delete:
     name: Test deletion
     runs-on: ubuntu-latest
-    needs: setup
     permissions:
       pull-requests: write
     env:
@@ -287,7 +295,6 @@ jobs:
   test-modify:
     name: Test modification
     runs-on: ubuntu-latest
-    needs: setup
     permissions:
       pull-requests: write
     env:
@@ -347,6 +354,75 @@ jobs:
           # Check Body
           body=$(jq -r '.body' <<< "$comment_json")
           expected_body='${{ env.MODIFIED_MESSAGE }}<!-- comment-action @@@modify@@@ -->'
+          if [[ "$body" != "$expected_body" ]]; then
+            echo "::error::Comment body '$body' does not match the expected body: '$expected_body'"
+            exit 1
+          fi
+  
+  test-append:
+    name: Test appending
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      APPENDED_MESSAGE: "Appended comment"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Create a comment to append to
+        id: create-comment-to-append-to
+        run: |
+          output=$(
+            gh api \
+            --method POST \
+            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            -f body='Comment to append to added by the test-comment-action.yml workflow.<!-- comment-action @@@append@@@ -->'
+          )
+          comment_url=$(jq -r '.html_url' <<< $output)
+          comment_id="${comment_url##*-}"
+          echo "comment-id=$comment_id" >> "$GITHUB_OUTPUT"
+
+      - name: Check comment
+        run: |
+          comment_json=$(
+            gh api "repos/${{ github.repository }}/issues/comments/${{ steps.create-comment-to-append-to.outputs.comment-id }}"
+          )
+          status=$(jq -r '.status // "200"' <<< "$comment_json")
+          if [[ "$status" == 404 ]]; then
+            echo "::error::Comment $comment_id doesn't seem to exist."
+            exit 1
+          fi
+          # Check Body
+          body=$(jq -r '.body' <<< "$comment_json")
+          expected_body='Comment to append to added by the test-comment-action.yml workflow.<!-- comment-action @@@append@@@ -->'
+          if [[ "$body" != "$expected_body" ]]; then
+            echo "::error::Comment body '$body' does not match the expected body: '$expected_body'"
+            exit 1
+          fi
+
+      - name: Append to comment
+        uses: ./.github/actions/comment
+        with:
+          message: "${{ env.APPENDED_MESSAGE }}"
+          append: true
+          label: append
+      
+      - name: Check comment is appended
+        run: |
+          comment_json=$(
+            gh api "repos/${{ github.repository }}/issues/comments/${{ steps.create-comment-to-append-to.outputs.comment-id }}"
+          )
+          status=$(jq -r '.status // "200"' <<< "$comment_json")
+          if [[ "$status" == 404 ]]; then
+            echo "::error::Comment $comment_id doesn't seem to exist."
+            exit 1
+          fi
+          # Check Body
+          body=$(jq -r '.body' <<< "$comment_json")
+          expected_body='Comment to append to added by the test-comment-action.yml workflow.
+          ${{ env.APPENDED_MESSAGE }}<!-- comment-action @@@append@@@ -->'
           if [[ "$body" != "$expected_body" ]]; then
             echo "::error::Comment body '$body' does not match the expected body: '$expected_body'"
             exit 1
