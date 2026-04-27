@@ -251,6 +251,8 @@ runs:
             -H 'X-GitHub-Api-Version: 2022-11-28' \
             repos/${{env.REPO}}/issues/comments/${{env.COMMENT_ID}} \
             --jq '.body' > "$existing_body_file"
+          # Remove newline added by gh from the existing body file
+          truncate -s -1 "$existing_body_file"
           echo "=== START OF EXISTING BODY ==="
           cat "$existing_body_file"
           echo "=== END OF EXISTING BODY ==="
