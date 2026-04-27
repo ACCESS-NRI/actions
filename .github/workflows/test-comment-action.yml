@@ -22,8 +22,6 @@ jobs:
     outputs:
       comment-url: ${{ steps.create-setup-comment.outputs.comment-url }}
       comment-id: ${{ steps.create-setup-comment.outputs.comment-id }}
-      comment-to-delete-id: ${{ steps.create-comment-to-delete.outputs.comment-id }}
-      comment-to-modify-id: ${{ steps.create-comment-to-modify.outputs.comment-id }}
     steps:
       - name: Create a setup comment
         id: create-setup-comment
@@ -36,30 +34,6 @@ jobs:
           )
           comment_url=$(jq -r '.html_url' <<< $output)
           echo "comment-url=$comment_url" >> "$GITHUB_OUTPUT"
-          comment_id="${comment_url##*-}"
-          echo "comment-id=$comment_id" >> "$GITHUB_OUTPUT"
-      - name: Create a comment to delete
-        id: create-comment-to-delete
-        run: |
-          output=$(
-            gh api \
-            --method POST \
-            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
-            -f body='Comment to delete added by the test-comment-action.yml workflow.<!-- comment-action @@@comment-to-delete@@@ -->'
-          )
-          comment_url=$(jq -r '.html_url' <<< $output)
-          comment_id="${comment_url##*-}"
-          echo "comment-id=$comment_id" >> "$GITHUB_OUTPUT"
-      - name: Create a comment to modify
-        id: create-comment-to-modify
-        run: |
-          output=$(
-            gh api \
-            --method POST \
-            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
-            -f body='Comment to modify added by the test-comment-action.yml workflow.<!-- comment-action @@@modify@@@ -->'
-          )
-          comment_url=$(jq -r '.html_url' <<< $output)
           comment_id="${comment_url##*-}"
           echo "comment-id=$comment_id" >> "$GITHUB_OUTPUT"
 
@@ -277,9 +251,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Create a comment to delete
+        id: create-comment-to-delete
+        run: |
+          output=$(
+            gh api \
+            --method POST \
+            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            -f body='Comment to delete added by the test-comment-action.yml workflow.<!-- comment-action @@@comment-to-delete@@@ -->'
+          )
+          comment_url=$(jq -r '.html_url' <<< $output)
+          comment_id="${comment_url##*-}"
+          echo "comment-id=$comment_id" >> "$GITHUB_OUTPUT"
+
       - name: Check comment exists
         run: |
-          if ! gh api repos/${{ github.repository }}/issues/comments/${{ needs.setup.outputs.comment-to-delete-id }} &>/dev/null; then
+          if ! gh api repos/${{ github.repository }}/issues/comments/${{ steps.create-comment-to-delete.outputs.comment-id }} &>/dev/null; then
             echo "::error::Comment does not exist."
             exit 1
           fi
@@ -288,11 +275,11 @@ jobs:
         uses: ./.github/actions/comment
         with:
           delete: true
-          comment-id: ${{ needs.setup.outputs.comment-to-delete-id }}
+          comment-id: ${{ steps.create-comment-to-delete.outputs.comment-id }}
       
       - name: Check comment is deleted
         run: |
-          if gh api repos/${{ github.repository }}/issues/comments/${{ needs.setup.outputs.comment-to-delete-id }} &>/dev/null; then
+          if gh api repos/${{ github.repository }}/issues/comments/${{ steps.create-comment-to-delete.outputs.comment-id }} &>/dev/null; then
             echo "::error::Comment is still present."
             exit 1
           fi
@@ -310,10 +297,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Create a comment to modify
+        id: create-comment-to-modify
+        run: |
+          output=$(
+            gh api \
+            --method POST \
+            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            -f body='Comment to modify added by the test-comment-action.yml workflow.<!-- comment-action @@@modify@@@ -->'
+          )
+          comment_url=$(jq -r '.html_url' <<< $output)
+          comment_id="${comment_url##*-}"
+          echo "comment-id=$comment_id" >> "$GITHUB_OUTPUT"
+
       - name: Check comment body
         run: |
           comment_json=$(
-            gh api "repos/${{ github.repository }}/issues/comments/${{ needs.setup.outputs.comment-to-modify-id }}"
+            gh api "repos/${{ github.repository }}/issues/comments/${{ steps.create-comment-to-modify.outputs.comment-id }}"
           )
           status=$(jq -r '.status // "200"' <<< "$comment_json")
           if [[ "$status" == 404 ]]; then
@@ -337,7 +337,7 @@ jobs:
       - name: Check comment is modified
         run: |
           comment_json=$(
-            gh api "repos/${{ github.repository }}/issues/comments/${{ needs.setup.outputs.comment-to-modify-id }}"
+            gh api "repos/${{ github.repository }}/issues/comments/${{ steps.create-comment-to-modify.outputs.comment-id }}"
           )
           status=$(jq -r '.status // "200"' <<< "$comment_json")
           if [[ "$status" == 404 ]]; then
