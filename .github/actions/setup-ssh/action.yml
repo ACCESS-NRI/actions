@@ -86,11 +86,13 @@ runs:
       run: |
         for host in $HOSTS; do
           for attempt in {1..5}; do
-            if ssh-keyscan -T 10 $host >> ~/.ssh/known_hosts; then
+            if ssh-keyscan -T 30 $host >> ~/.ssh/known_hosts; then
               break
             fi
             if [[ $attempt -eq 5 ]]; then
               echo "::error::ssh-keyscan failed for $host after 5 attempts"
+              # Log verbose output of ssh-keyscan for debugging
+              ssh-keyscan -v -T 30 $host
               exit 1
             fi
             echo "Retrying ssh-keyscan for $host in 5s..."
