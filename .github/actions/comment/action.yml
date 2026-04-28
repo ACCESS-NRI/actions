@@ -4,7 +4,13 @@ inputs:
   message:
     type: string
     required: false
-    description: The comment body. Supports Markdown format.
+    description: |
+      The comment body. Supports Markdown format. Cannot be used together with `message-file`.
+  message-file:
+    type: string
+    required: false
+    description: |
+      Path to a text file whose content is used as the comment body. Supports Markdown format. Cannot be used together with `message`.
   number:
     type: number
     required: false
@@ -53,6 +59,11 @@ inputs:
     required: false
     default: false
     description: If set to true, it deletes the comment.
+  append:
+    type: boolean
+    required: false
+    default: false
+    description: If set to true, it appends to the existing comment instead of replacing it.
   token:
     type: string
     required: false
@@ -66,10 +77,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
     - name: Inputs sanity check
       # We use the +H option to prevent history expansion, so the '!' character can be printed out without 
       # problems.
@@ -77,19 +84,42 @@ runs:
       id: inputs-check
       # We place the message to a temporary file to avoid issues with special characters (e.g. new lines, quotes, etc.)
       run: |
-        # Check MESSAGE
-        msg_file=$(mktemp)
-        cat > "$msg_file" << '_UNUSUAL_EOF'
-        ${{ inputs.message }}
-        _UNUSUAL_EOF
-        if [[ -z "$(cat $msg_file)" && ${{ inputs.delete }} != 'true' ]]; then
-          echo "::error::Please provide a message for the comment."
+        # Check that 'append' and 'delete' are not used together
+        if [[ '${{ inputs.append }}' == 'true' && '${{ inputs.delete }}' == 'true' ]]; then
+          echo '::error::Cannot set both `append` and `delete` inputs to true. Please set one of them to false.'
           exit 1
         fi
-        echo "=== START OF MESSAGE ==="
-        cat $msg_file
-        echo "=== END OF MESSAGE ==="
-        echo "msg_file=$msg_file" >> $GITHUB_OUTPUT
+
+        # Check MESSAGE and MESSAGE-FILE
+        if [[ '${{ inputs.delete }}' != 'true' ]]; then
+          # If 'delete' is not true, make sure that exactly one between MESSAGE and MESSAGE-FILE is set
+          if [[ -z '${{ inputs.message }}' && -z '${{ inputs.message-file }}' ]]; then
+            echo "::error::Please provide a message or message-file for the comment."
+            exit 1
+          elif [[ -n '${{ inputs.message }}' && -n '${{ inputs.message-file }}' ]]; then
+            echo "::error::Both 'message' and 'message-file' inputs are set. Please provide only one of them."
+            exit 1
+          fi
+          msg_file='${{ inputs.message-file }}'
+          if [[ -z "$msg_file" ]]; then
+            # If message-file is not provided, create a temporary file and write the message input to it
+            msg_file=$(mktemp)
+            cat > "$msg_file" << '_UNUSUAL_EOF'
+        ${{ inputs.message }}
+        _UNUSUAL_EOF
+          elif [[ ! -f "$msg_file" ]]; then
+            echo "::error::The provided message-file '$msg_file' does not exist."
+            exit 1
+          fi
+          echo "=== START OF MESSAGE ==="
+          cat $msg_file
+          echo "=== END OF MESSAGE ==="
+          echo "msg_file=$msg_file" >> $GITHUB_OUTPUT
+        elif [[ -n '${{ inputs.message }}' || -n '${{ inputs.message-file }}' ]]; then
+          # If 'delete' is true and any of 'message' or 'message-file' is provided, warn that they won't
+          # be used
+          echo "::warning::The 'message' and 'message-file' inputs will be ignored when 'delete' is set to true."
+        fi
 
         # Parse URL
         if [[ -n '${{ inputs.url }}' ]]; then
@@ -157,7 +187,7 @@ runs:
 
         # Set LABEL_STRING
         label=${{ inputs.label }}
-        label=${label:-$(TZ=Australia/Canberra date +"%Y-%m-%dT%H:%M:%S")}
+        label=${label:-$(date --universal '+%FT%TZ')}
         label_string="<!-- comment-action @@@${label}@@@ -->"
         # Log label and add it to GitHub outputs
         echo "Label string: ${label_string}"
@@ -200,6 +230,58 @@ runs:
         echo "Comment ID: ${comment_id}"
         echo "comment_id=$comment_id" >> $GITHUB_OUTPUT
 
+    - name: Get existing comment body
+      id: get-existing-body
+      # Only fetch the existing body if we are appending to an existing comment
+      if: inputs.append == 'true'
+      shell: bash
+      env:
+        REPO: ${{ steps.inputs-check.outputs.repo }}
+        COMMENT_ID: ${{ steps.get-comment-id.outputs.comment_id }}
+      run: |
+        if [[ -z "$COMMENT_ID" ]]; then
+          # No existing comment found: a new comment will be created instead
+          echo "::warning::No comment to append to was found, a new comment will be created instead."
+          existing_body_file=""
+        else
+          # Fetch the existing comment body and write it to a temporary file
+          existing_body_file=$(mktemp)
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            repos/${{env.REPO}}/issues/comments/${{env.COMMENT_ID}} \
+            --jq '.body' > "$existing_body_file"
+          # Remove newline added by gh from the existing body file
+          truncate -s -1 "$existing_body_file"
+          echo "=== START OF EXISTING BODY ==="
+          cat "$existing_body_file"
+          echo "=== END OF EXISTING BODY ==="
+        fi
+        echo "existing_body_file=$existing_body_file" >> $GITHUB_OUTPUT
+
+    - name: Prepend existing body to message file
+      id: prepend-message
+      # Only run if appending and an existing comment body was fetched
+      if: inputs.append == 'true' && steps.get-existing-body.outputs.existing_body_file != ''
+      shell: bash
+      env:
+        MSG_FILE: ${{ steps.inputs-check.outputs.msg_file }}
+        EXISTING_BODY_FILE: ${{ steps.get-existing-body.outputs.existing_body_file }}
+        LABEL_STRING: ${{ steps.inputs-check.outputs.label_string }}
+      run: |
+        # Create a combined temporary file
+        combined_file=$(mktemp)
+        # Strip the label string from the existing body before appending, since it will
+        # be re-appended at the end by the comment step, and append it to the combined temporary file
+        sed "s|${LABEL_STRING}||g" "$EXISTING_BODY_FILE" > "$combined_file"
+        # Append the new message to the combined temporary file
+        cat "$MSG_FILE" >> "$combined_file"
+        echo "=== START OF COMBINED MESSAGE ==="
+        cat "$combined_file"
+        echo "=== END OF COMBINED MESSAGE ==="
+        # Override the msg_file output so the comment step uses the combined file
+        echo "msg_file=$combined_file" >> $GITHUB_OUTPUT
+
     - name: Delete comment
       if: ${{ inputs.delete == 'true' }}
       env:
@@ -225,7 +307,7 @@ runs:
       # We pass the message as an environment variable to avoid issues with bash 
       # special characters (e.g. new lines, quotes, etc.).
       env:
-        MSG_FILE: ${{ steps.inputs-check.outputs.msg_file }}
+        MSG_FILE: ${{ steps.prepend-message.outputs.msg_file || steps.inputs-check.outputs.msg_file }}
         NUMBER: ${{ steps.inputs-check.outputs.number }}
         REPO: ${{ steps.inputs-check.outputs.repo }}
         LABEL_STRING: ${{ steps.inputs-check.outputs.label_string }}
