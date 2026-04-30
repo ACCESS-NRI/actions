@@ -82,6 +82,8 @@ runs:
       # problems.
       shell: bash +H {0}
       id: inputs-check
+      env:
+        INPUT_MESSAGE: "${{ inputs.message }}"
       # We place the message to a temporary file to avoid issues with special characters (e.g. new lines, quotes, etc.)
       run: |
         # Check that 'append' and 'delete' are not used together
@@ -93,10 +95,10 @@ runs:
         # Check MESSAGE and MESSAGE-FILE
         if [[ '${{ inputs.delete }}' != 'true' ]]; then
           # If 'delete' is not true, make sure that exactly one between MESSAGE and MESSAGE-FILE is set
-          if [[ -z '${{ inputs.message }}' && -z '${{ inputs.message-file }}' ]]; then
+          if [[ -z "$INPUT_MESSAGE" && -z '${{ inputs.message-file }}' ]]; then
             echo "::error::Please provide a message or message-file for the comment."
             exit 1
-          elif [[ -n '${{ inputs.message }}' && -n '${{ inputs.message-file }}' ]]; then
+          elif [[ -n "$INPUT_MESSAGE" && -n '${{ inputs.message-file }}' ]]; then
             echo "::error::Both 'message' and 'message-file' inputs are set. Please provide only one of them."
             exit 1
           fi
@@ -115,7 +117,7 @@ runs:
           cat $msg_file
           echo "=== END OF MESSAGE ==="
           echo "msg_file=$msg_file" >> $GITHUB_OUTPUT
-        elif [[ -n '${{ inputs.message }}' || -n '${{ inputs.message-file }}' ]]; then
+        elif [[ -n "$INPUT_MESSAGE" || -n '${{ inputs.message-file }}' ]]; then
           # If 'delete' is true and any of 'message' or 'message-file' is provided, warn that they won't
           # be used
           echo "::warning::The 'message' and 'message-file' inputs will be ignored when 'delete' is set to true."

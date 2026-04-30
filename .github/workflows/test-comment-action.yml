@@ -426,6 +426,57 @@ jobs:
             echo "::error::Comment body '$body' does not match the expected body: '$expected_body'"
             exit 1
           fi
+  
+  test-special-characters:
+    name: Test special characters
+    runs-on: ubuntu-latest
+    env:
+      SPECIAL_CHARACTERS: |
+        " ' ` $ & * ( ) [ ] { } | < > !
+      GH_TOKEN: ${{ github.token }}
+      LABEL: special-characters
+      COMMENT_FILE: comment_file
+
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Write comment
+        uses: ./.github/actions/comment
+        with:
+          message: |
+            Message with ${{ env.SPECIAL_CHARACTERS }} special characters
+          append: true
+          label: ${{ env.LABEL }}
+      
+      - name: Append comment
+        uses: ./.github/actions/comment
+        with:
+          message: |
+            Appended comment with ${{ env.SPECIAL_CHARACTERS }} special characters
+          append: true
+          label: ${{ env.LABEL }}
+      
+      - name: Create comment file
+        run: |
+          cat > comment_file <<'EOF'
+          Message with ${{ env.SPECIAL_CHARACTERS }} special characters
+          EOF
+
+      - name: Write comment using file
+        uses: ./.github/actions/comment
+        with:
+          message-file: comment_file
+          label: ${{ env.LABEL }}
+      
+      - name: Append comment using file
+        uses: ./.github/actions/comment
+        with:
+          message-file: comment_file
+          append: true
+          label: ${{ env.LABEL }}
 
   cleanup:
     name: Cleanup messages
