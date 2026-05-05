@@ -1,12 +1,20 @@
 name: Setup SSH
-description: Action to setup SSH connection and update known_hosts at the job level
+description: Action to setup SSH connection at the job level
 inputs:
   hosts:
-    required: false
-    description: A list of hosts to add to ~/.ssh/known_hosts
+    required: true
+    description: |
+      Space- or newline-separated list of SSH hosts to add to the SSH config. Each entry can optionally
+      include an alias using the format `host:alias` (e.g. `myhost.org.au:myalias`), allowing
+      connection with `ssh user@myalias` instead of `ssh user@myhost.org.au`.
   private-key:
     required: true
     description: Private key as a string
+  user:
+    required: false
+    description: |
+      Default user for SSH connections. When provided, it is added to the SSH config to allow
+      connection with `ssh myhost.org.au` instead of `ssh user@myhost.org.au`.
   private-key-name:
     required: false
     description: name of ephemeral generated private key file
@@ -21,6 +29,17 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - name: Sanity check on hosts input
+      shell: bash
+      env:
+        HOSTS: ${{ inputs.hosts }}
+      run: |
+        for host in "$HOSTS"; do
+          if ! [[ "$host" =~ ^[^:]+(:[^:]+)?$ ]]; then
+            echo "::error::Invalid host entry '$host'. Each entry in 'hosts' must be in the format 'hostname' or 'hostname:alias'."
+            exit 1
+          fi
+        done
     - name: Add ~/.ssh directory
       shell: bash
       run: |
@@ -78,25 +97,24 @@ runs:
         # in the job using this action can use the same ssh-agent
         echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
         echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
-    - name: Add to known_hosts
-      if: inputs.hosts != ''
-      shell: bash
+    - name: Add hosts to ssh config
       env:
         HOSTS: ${{ inputs.hosts }}
+        USER: ${{ inputs.user }}
+      shell: bash
       run: |
-        for host in $HOSTS; do
-          for attempt in {1..5}; do
-            if ssh-keyscan -T 30 $host >> ~/.ssh/known_hosts; then
-              break
-            fi
-            if [[ $attempt -eq 5 ]]; then
-              echo "::error::ssh-keyscan failed for $host after 5 attempts"
-              # Log verbose output of ssh-keyscan for debugging
-              ssh-keyscan -v -T 30 $host
-              exit 1
-            fi
-            echo "Retrying ssh-keyscan for $host in 5s..."
-            sleep 5
-          done
+        hosts=$(echo "$HOSTS" | tr '\n' ' ' | xargs)
+        for host in $hosts; do
+          # Split the host by colon to separate the hostname from the alias (if any)
+          # If no alias is provided, the hostname and alias will be the same, which
+          # would still work fine
+          hostname=$(echo "$host" | cut -d: -f1)
+          alias=$(echo "$host" | cut -d: -f2)
+          cat >> ~/.ssh/config <<EOF
+        Host $alias
+          Hostname $hostname
+          StrictHostKeyChecking accept-new
+          IdentityFile ${{ steps.pk.outputs.path }}
+          ${USER:+User $USER}
+        EOF
         done
-        chmod 600 ~/.ssh/known_hosts

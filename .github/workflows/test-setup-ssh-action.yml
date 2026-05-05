@@ -9,9 +9,9 @@ on:
       - '.github/workflows/test-setup-ssh.yml'
 
 env:
-    TESTED_ACTION: "setup-ssh"
-    PRIVATE_KEY: "/tmp/id_test"
-    PRIVATE_KEY_NO_PASSPHRASE: "/tmp/id_test_no_passphrase"
+  TESTED_ACTION: "setup-ssh"
+  PRIVATE_KEY: "/tmp/id_test"
+  PRIVATE_KEY_NO_PASSPHRASE: "/tmp/id_test_no_passphrase"
 
 jobs:
   # Generate ephemeral SSH keys for testing
@@ -159,7 +159,6 @@ jobs:
           ssh -vvv \
             -i '${{ steps.run-action.outputs.private-key-path }}' \
             -p 2222 \
-            -o StrictHostKeyChecking=${{ matrix.input-hosts == '' && 'no' || 'yes' }} \
             ${{ env.TEST_USERNAME }}@localhost \
             exit 0
 
@@ -185,12 +184,23 @@ jobs:
           private-key: "${{ secrets.SSH_KEY }}"
           private-key-passphrase: "${{ secrets.PASSPHRASE }}"
       
-      # We try to connect with '-o StrictHostKeyChecking=yes' to verify that the SSH key is
-      # correctly added to the known_hosts
       - name: Verify SSH connection
         run: |
           ssh -vvv \
             -i '${{ steps.run-action.outputs.private-key-path }}' \
-            -o StrictHostKeyChecking=yes \
+            ${{ secrets.USER }}@${{ secrets.HOST }} \
+            exit 0
+      
+      - name: Run action no-host
+        id: run-action-no-host
+        uses: ./.github/actions/setup-ssh
+        with: 
+          private-key: "${{ secrets.SSH_KEY }}"
+          private-key-passphrase: "${{ secrets.PASSPHRASE }}"
+      
+      - name: Verify SSH connection
+        run: |
+          ssh -vvv \
+            -i '${{ steps.run-action-no-host.outputs.private-key-path }}' \
             ${{ secrets.USER }}@${{ secrets.HOST }} \
             exit 0
