@@ -188,7 +188,7 @@ jobs:
       - name: Publish package to Anaconda.org
         id: publish-conda-package
         if: ${{ inputs.conda-package }}
-        uses: ACCESS-NRI/action-build-and-upload-conda-packages@v3.0.0
+        uses: ACCESS-NRI/action-build-and-upload-conda-packages@v3.1.0
         with:
           meta_yaml_dir: ${{ steps.create-recipe.outputs.meta-yaml-dir }}
           user: ${{ secrets.ANACONDA_USERNAME }}
