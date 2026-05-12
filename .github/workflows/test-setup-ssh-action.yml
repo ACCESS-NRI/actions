@@ -9,9 +9,9 @@ on:
       - '.github/workflows/test-setup-ssh.yml'
 
 env:
-    TESTED_ACTION: "setup-ssh"
-    PRIVATE_KEY: "/tmp/id_test"
-    PRIVATE_KEY_NO_PASSPHRASE: "/tmp/id_test_no_passphrase"
+  TESTED_ACTION: "setup-ssh"
+  PRIVATE_KEY: "/tmp/id_test"
+  PRIVATE_KEY_NO_PASSPHRASE: "/tmp/id_test_no_passphrase"
 
 jobs:
   # Generate ephemeral SSH keys for testing
@@ -66,7 +66,7 @@ jobs:
             label: "Passphrase"
             description: |
               Test action with SSH key with passphrase.
-            input-hosts: ""
+            input-hosts: "localhost"
             input-private-key: "${{ needs.generate-ssh-keys.outputs.private-key }}"
             input-private-key-name: "id_test"
             input-private-key-passphrase: "${{ needs.generate-ssh-keys.outputs.passphrase }}"
@@ -75,7 +75,7 @@ jobs:
             label: "No passphrase"
             description: |
               Test action with SSH key without passphrase.
-            input-hosts: ""
+            input-hosts: "localhost"
             input-private-key: "${{ needs.generate-ssh-keys.outputs.private-key-no-passphrase }}"
             input-private-key-name: "id_test"
             input-private-key-passphrase: ""
@@ -84,7 +84,7 @@ jobs:
             label: "Failure - wrong passphrase provided"
             description: |
               Test action with wrong passphrase provided.
-            input-hosts: ""
+            input-hosts: "localhost"
             input-private-key: "${{ needs.generate-ssh-keys.outputs.private-key }}"
             input-private-key-name: "id_test"
             input-private-key-passphrase: "wrong_passphrase"
@@ -93,7 +93,7 @@ jobs:
             label: "Failure - no passphrase provided"
             description: |
               Test action with no passphrase provided when needed.
-            input-hosts: ""
+            input-hosts: "localhost"
             input-private-key: "${{ needs.generate-ssh-keys.outputs.private-key }}"
             input-private-key-name: "id_test"
             input-private-key-passphrase: ""
@@ -102,11 +102,38 @@ jobs:
             label: "Passphrase provided when not needed"
             description: |
               Test action with passphrase provided when not needed.
-            input-hosts: ""
+            input-hosts: "localhost"
             input-private-key: "${{ needs.generate-ssh-keys.outputs.private-key-no-passphrase }}"
             input-private-key-name: "id_test"
             input-private-key-passphrase: "${{ needs.generate-ssh-keys.outputs.passphrase }}"
             outcome: "success"
+          - id: 6
+            label: "Alias wrong format"
+            description: |
+              Test action with alias in wrong format.
+            input-hosts: "localhost:"
+            input-private-key: "${{ needs.generate-ssh-keys.outputs.private-key-no-passphrase }}"
+            input-private-key-name: "id_test"
+            input-private-key-passphrase: "${{ needs.generate-ssh-keys.outputs.passphrase }}"
+            outcome: "failure"
+          - id: 7
+            label: "Alias wrong format 2"
+            description: |
+              Test action with alias in wrong format.
+            input-hosts: ":localhost"
+            input-private-key: "${{ needs.generate-ssh-keys.outputs.private-key-no-passphrase }}"
+            input-private-key-name: "id_test"
+            input-private-key-passphrase: "${{ needs.generate-ssh-keys.outputs.passphrase }}"
+            outcome: "failure"
+          - id: 8
+            label: "Alias wrong format 3"
+            description: |
+              Test action with alias in wrong format.
+            input-hosts: "localhost::myalias"
+            input-private-key: "${{ needs.generate-ssh-keys.outputs.private-key-no-passphrase }}"
+            input-private-key-name: "id_test"
+            input-private-key-passphrase: "${{ needs.generate-ssh-keys.outputs.passphrase }}"
+            outcome: "failure"
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -159,18 +186,15 @@ jobs:
           ssh -vvv \
             -i '${{ steps.run-action.outputs.private-key-path }}' \
             -p 2222 \
-            -o StrictHostKeyChecking=${{ matrix.input-hosts == '' && 'no' || 'yes' }} \
-            ${{ env.TEST_USERNAME }}@localhost \
+            $TEST_USERNAME@localhost \
             exit 0
 
       - name: Cleanup SSH server
         if: always()
         run: docker rm -f test-ssh-server 2>/dev/null || true
     
-  # To test with the hosts input we need a real world scenario with a real SSH server, 
-  # so we cannot use the same ephemeral SSH keys generated for the previous job.
   test-real-host:
-    name: Test real host with passphrase
+    name: Test real host
     runs-on: ubuntu-latest
     environment: test-setup-ssh
     steps:
@@ -181,16 +205,55 @@ jobs:
         id: run-action
         uses: ./.github/actions/setup-ssh
         with: 
-          hosts: ${{ secrets.HOST }}
+          hosts: |
+            ${{ secrets.HOST }}
+            another_host
           private-key: "${{ secrets.SSH_KEY }}"
           private-key-passphrase: "${{ secrets.PASSPHRASE }}"
       
-      # We try to connect with '-o StrictHostKeyChecking=yes' to verify that the SSH key is
-      # correctly added to the known_hosts
       - name: Verify SSH connection
-        run: |
-          ssh -vvv \
-            -i '${{ steps.run-action.outputs.private-key-path }}' \
-            -o StrictHostKeyChecking=yes \
-            ${{ secrets.USER }}@${{ secrets.HOST }} \
-            exit 0
+        run: ssh -vvv ${{ secrets.USER }}@${{ secrets.HOST }} exit 0
+  
+  test-user-input:
+    name: Test user input
+    runs-on: ubuntu-latest
+    environment: test-setup-ssh
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run action
+        id: run-action
+        uses: ./.github/actions/setup-ssh
+        with: 
+          hosts: |
+            ${{ secrets.HOST }}
+            another_host
+          user: ${{ secrets.USER }}
+          private-key: "${{ secrets.SSH_KEY }}"
+          private-key-passphrase: "${{ secrets.PASSPHRASE }}"
+      
+      - name: Verify SSH connection
+        run: ssh -vvv ${{ secrets.HOST }} exit 0
+  
+  test-alias:
+    name: Test host alias
+    runs-on: ubuntu-latest
+    environment: test-setup-ssh
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run action
+        id: run-action
+        uses: ./.github/actions/setup-ssh
+        with: 
+          hosts: |
+            ${{ secrets.HOST }}:myalias
+            another_host
+          user: ${{ secrets.USER }}
+          private-key: "${{ secrets.SSH_KEY }}"
+          private-key-passphrase: "${{ secrets.PASSPHRASE }}"
+      
+      - name: Verify SSH connection
+        run: ssh -vvv myalias exit 0
