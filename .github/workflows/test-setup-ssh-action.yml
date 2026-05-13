@@ -260,7 +260,7 @@ jobs:
   
   # We test that the connection providing the ssh key with `-i <private-key-path>` still works
   test-legacy:
-    name: Test connection
+    name: Test legacy connection
     runs-on: ubuntu-latest
     environment: test-setup-ssh
     steps:
