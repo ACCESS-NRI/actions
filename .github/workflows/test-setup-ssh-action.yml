@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - '.github/actions/setup-ssh/action.yml'
-      - '.github/workflows/test-setup-ssh.yml'
+      - '.github/workflows/test-setup-ssh-action.yml'
 
 env:
   TESTED_ACTION: "setup-ssh"
@@ -257,3 +257,28 @@ jobs:
       
       - name: Verify SSH connection
         run: ssh -vvv myalias exit 0
+  
+  # We test that the connection providing the ssh key with `-i <private-key-path>` still works
+  test-legacy:
+    name: Test legacy connection
+    runs-on: ubuntu-latest
+    environment: test-setup-ssh
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run action
+        id: run-action
+        uses: ./.github/actions/setup-ssh
+        with: 
+          hosts: |
+            ${{ secrets.HOST }}
+            another_host
+          private-key: "${{ secrets.SSH_KEY }}"
+          private-key-passphrase: "${{ secrets.PASSPHRASE }}"
+      
+      - name: Verify SSH connection
+        run: |
+          ssh -vvv ${{ secrets.USER }}@${{ secrets.HOST }} \
+            -i ${{ steps.run-action.outputs.private-key-path }} \
+            exit 0

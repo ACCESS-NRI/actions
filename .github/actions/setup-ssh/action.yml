@@ -97,6 +97,14 @@ runs:
         # in the job using this action can use the same ssh-agent
         echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
         echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
+    # In the ssh config we set for each host:
+    # StrictHostKeyChecking accept-new - To automatically accept new host keys
+    # IdentityFile <path> - The private ssh key to be used
+    # ConnectTimeout 60 - Avoid hanging indefinitely if the server is unreachable.
+    # ServerAliveInterval 60 - Send a "probe" every minute to verify that the connection is
+    #                          still active. Avoid keeping stale connections
+    # ServerAliveCountMax 3 - After 3 failed "probes", the connection will be closed.
+    # User <user> - User only if the user input is provided
     - name: Add hosts to ssh config
       env:
         HOSTS: ${{ inputs.hosts }}
@@ -115,6 +123,9 @@ runs:
           Hostname $hostname
           StrictHostKeyChecking accept-new
           IdentityFile ${{ steps.pk.outputs.path }}
+          ConnectTimeout 60
+          ServerAliveInterval 60
+          ServerAliveCountMax 3
           ${USER:+User $USER}
         EOF
         done
