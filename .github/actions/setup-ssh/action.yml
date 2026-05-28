@@ -32,14 +32,16 @@ runs:
     - name: Sanity check on hosts input
       shell: bash
       env:
-        HOSTS: ${{ inputs.hosts }}
+        HOSTS: ${{ inputs.hosts || '' }} # Setting this to also handle multiple empty characters like `hosts: "   "`
       run: |
-        for host in "$HOSTS"; do
-          if ! [[ "$host" =~ ^[^:]+(:[^:]+)?$ ]]; then
-            echo "::error::Invalid host entry '$host'. Each entry in 'hosts' must be in the format 'hostname' or 'hostname:alias'."
-            exit 1
-          fi
-        done
+        if [[ -n "$HOSTS" ]]; then
+          for host in "$HOSTS"; do
+            if ! [[ "$host" =~ ^[^:]+(:[^:]+)?$ ]]; then
+              echo "::error::Invalid host entry '$host'. Each entry in 'hosts' must be in the format 'hostname' or 'hostname:alias'."
+              exit 1
+            fi
+          done
+        fi
     - name: Add ~/.ssh directory
       shell: bash
       run: |
