@@ -32,14 +32,16 @@ runs:
     - name: Sanity check on hosts input
       shell: bash
       env:
-        HOSTS: ${{ inputs.hosts }}
+        HOSTS: ${{ inputs.hosts || '' }} # Setting this to also handle multiple empty characters like `hosts: "   "`
       run: |
-        for host in "$HOSTS"; do
-          if ! [[ "$host" =~ ^[^:]+(:[^:]+)?$ ]]; then
-            echo "::error::Invalid host entry '$host'. Each entry in 'hosts' must be in the format 'hostname' or 'hostname:alias'."
-            exit 1
-          fi
-        done
+        if [[ -n "$HOSTS" ]]; then
+          for host in "$HOSTS"; do
+            if ! [[ "$host" =~ ^[^:]+(:[^:]+)?$ ]]; then
+              echo "::error::Invalid host entry '$host'. Each entry in 'hosts' must be in the format 'hostname' or 'hostname:alias'."
+              exit 1
+            fi
+          done
+        fi
     - name: Add ~/.ssh directory
       shell: bash
       run: |
@@ -121,11 +123,15 @@ runs:
           cat >> ~/.ssh/config <<EOF
         Host $alias
           Hostname $hostname
-          StrictHostKeyChecking accept-new
           IdentityFile ${{ steps.pk.outputs.path }}
-          ConnectTimeout 60
-          ServerAliveInterval 60
-          ServerAliveCountMax 3
           ${USER:+User $USER}
         EOF
         done
+        # Add common SSH options for all hosts
+        cat >> ~/.ssh/config <<'EOF'
+        Host *
+          StrictHostKeyChecking accept-new
+          ConnectTimeout 60
+          ServerAliveInterval 60
+          ServerAliveCountMax 3
+        EOF
