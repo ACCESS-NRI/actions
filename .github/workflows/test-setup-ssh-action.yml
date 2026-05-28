@@ -282,3 +282,24 @@ jobs:
           ssh -vvv ${{ secrets.USER }}@${{ secrets.HOST }} \
             -i ${{ steps.run-action.outputs.private-key-path }} \
             exit 0
+    
+  test-no-hosts:
+    name: Test no hosts provided
+    runs-on: ubuntu-latest
+    environment: test-setup-ssh
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run action
+        id: run-action
+        uses: ./.github/actions/setup-ssh
+        with: 
+          private-key: "${{ secrets.SSH_KEY }}"
+          private-key-passphrase: "${{ secrets.PASSPHRASE }}"
+      
+      - name: Verify SSH connection
+        run: |
+          ssh -vvv ${{ secrets.USER }}@${{ secrets.HOST }} \
+            -i ${{ steps.run-action.outputs.private-key-path }} \
+            exit 0
