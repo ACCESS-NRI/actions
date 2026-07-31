@@ -188,11 +188,11 @@ jobs:
               -- ${{ env.PYTHON_ARTIFACT_DIR }}/*.tar.gz
           # Find the directory containing the meta.yaml
           meta_yaml_dir=$(find "$recipe_dir" -name meta.yaml -exec dirname {} \;)
-          # Grayskull changes the package name to adhere to the anaconda naming conventions.
-          # We want the name to be the original one from the pyproject.toml, therefore we forcefully
-          # replace the name in the meta.yaml with the one from the pyproject.toml.
-          # Grayskull sets the original package name in the jinja2 variable `name`,
-          # therefore we can set the meta.yaml package.name to `{{ name }}`.
+          # Grayskull might change the recipe's package name (e.g., swaps hyphens with underscores).
+          # We want the conda package name to be the original one from the pyproject.toml,
+          # therefore we set the name in the meta.yaml to be the one from the pyproject.toml.
+          # Grayskull already sets the original package name as a jinja2 variable `name`,
+          # therefore we can set the meta.yaml package name to `{{ name }}`.
           sed -i '/^package:/,/^[^# ]/ s/^\(\s*name:\s*\).*/\1{{ name }}/' "$meta_yaml_dir/meta.yaml"
           echo "Using the following conda recipe:"
           cat "$meta_yaml_dir/meta.yaml"
