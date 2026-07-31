@@ -183,6 +183,8 @@ jobs:
           micromamba run -n ${{ env.BUILD_ENV_NAME }} grayskull pypi ${{ env.PYTHON_ARTIFACT_DIR }}/*.tar.gz
           # Find the directory containing meta.yaml.
           meta_yaml_dir=$(find "$recipe_dir" -name meta.yaml -exec dirname {} \;)
+          echo "Using the following conda recipe:"
+          cat "$meta_yaml_dir/meta.yaml"
           echo "meta-yaml-dir=$meta_yaml_dir" >> $GITHUB_OUTPUT
 
       - name: Publish package to Anaconda.org
