@@ -44,7 +44,7 @@ This workflow builds and publishes a pure python package distribution on Pypi an
 > This workflow does not support [PyPI Trusted Publisher](https://docs.pypi.org/trusted-publishers/) technology, as [it cannot be used within a reusable workflow at this time](https://github.com/pypa/gh-action-pypi-publish?tab=readme-ov-file#trusted-publishing). Therefore, a PyPI token is required to publish to PyPI.
 
 ### About
-This workflow builds a Python wheel and source tarball from the project’s `pyproject.toml`, generates a conda recipe using [Grayskull](https://github.com/conda/grayskull), and builds the corresponding conda package. It then publishes the wheel to PyPI and the conda package to Anaconda.org, while also uploading an artifact containing the wheel, conda package, and tarball for further use.
+This workflow builds a Python wheel and source tarball from the project’s `pyproject.toml`, generates a conda recipe using [Grayskull](https://github.com/conda/grayskull), and builds the corresponding conda package. It then publishes the wheel to PyPI and the conda package to Anaconda.org. It also uploads the `python-package` and `conda-package` artifacts, containing the python packages, and conda packages and recipe, respectively.
 
 ### Inputs
 
@@ -58,7 +58,8 @@ This workflow builds a Python wheel and source tarball from the project’s `pyp
 
 | Name | Type | Description | Example |
 | --- | --- | --- | --- |
-| artifact-name | string | The name of the artifact containing the built packages and tarball | `_dist_artifact` |
+| python-artifact-name | string | The name of the artifact containing the built python packages | `python-package` |
+| conda-artifact-name | string | The name of the artifact containing the built conda packages and recipe | `conda-package` |
 
 ### Usage
 
