@@ -205,14 +205,14 @@ jobs:
           cat "$meta_yaml_dir/meta.yaml"
           echo "meta-yaml-dir=$meta_yaml_dir" >> $GITHUB_OUTPUT
 
-      - name: Publish package to Anaconda.org
-        id: publish-conda-package
-        if: ${{ inputs.conda-package }}
-        uses: ACCESS-NRI/action-build-and-upload-conda-packages@v3.1.0
-        with:
-          meta_yaml_dir: ${{ steps.create-recipe.outputs.meta-yaml-dir }}
-          user: ${{ secrets.ANACONDA_USERNAME }}
-          token: ${{ secrets.ANACONDA_TOKEN }}
+    #   - name: Publish package to Anaconda.org
+    #     id: publish-conda-package
+    #     if: ${{ inputs.conda-package }}
+    #     uses: ACCESS-NRI/action-build-and-upload-conda-packages@v3.1.0
+    #     with:
+    #       meta_yaml_dir: ${{ steps.create-recipe.outputs.meta-yaml-dir }}
+    #       user: ${{ secrets.ANACONDA_USERNAME }}
+    #       token: ${{ secrets.ANACONDA_TOKEN }}
 
       - name: Upload conda artifact
         uses: actions/upload-artifact@v7
@@ -223,13 +223,13 @@ jobs:
             ${{ steps.publish-conda-package.outputs.paths }}
             ${{ steps.create-recipe.outputs.meta-yaml-dir }}/meta.yaml
         
-      - name: Publish package to PyPI
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
-        if: ${{ inputs.pypi-package }}
-        with:
-          password: ${{ secrets.PYPI_TOKEN }}
-          packages-dir: ${{ env.PYTHON_ARTIFACT_DIR }}
-          verbose: true
+    #   - name: Publish package to PyPI
+    #     uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+    #     if: ${{ inputs.pypi-package }}
+    #     with:
+    #       password: ${{ secrets.PYPI_TOKEN }}
+    #       packages-dir: ${{ env.PYTHON_ARTIFACT_DIR }}
+    #       verbose: true
 
       - name: Set artifact name outputs
         id: set-artifact-name-outputs
