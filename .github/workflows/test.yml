@@ -1,0 +1,15 @@
+# Workflow to test the version-check action
+name: Test version check action
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    uses: $/.github/workflows/publish-python-package.yml
+    secrets: inherit
+    permissions:
+      actions: write
+    with:
+      pyproject-toml-dir: ./.github/workflows/test
