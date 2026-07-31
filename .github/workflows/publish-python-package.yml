@@ -135,7 +135,7 @@ jobs:
   publish-package:
     name: Publish package
     runs-on: ubuntu-latest
-    needs: build_tarball_and_python_wheel
+    needs: [inputs_sanity_check, build_tarball_and_python_wheel]
     steps:
       - uses: actions/checkout@v6
       
@@ -159,7 +159,7 @@ jobs:
             '  - python>=3.11'
             '  - conda-build'
             '  - anaconda-client'
-            '  - grayskull'
+            '  - grayskull==3.1.1'
             '  - versioneer'
             '  - setuptools-scm'
           )
@@ -174,14 +174,26 @@ jobs:
       - name: Create recipe from tarball
         id: create-recipe
         if: ${{ inputs.conda-package }}
+        env:
+          PYPROJECT_TOML: ${{ needs.inputs_sanity_check.outputs.pyproject_toml_dir }}/pyproject.toml
         run: |
-          # We create a recipe dir and cd into it, because there is no 'outdir' option or similar in grayskull
-          recipe_dir=${{ github.workspace }}/_recipe_dir
-          mkdir "$recipe_dir" && cd "$recipe_dir"
+          recipe_dir=${{ github.workspace }}/recipe
+          mkdir -p "$recipe_dir"
           # Create conda recipe from the tarball
-          micromamba run -n ${{ env.BUILD_ENV_NAME }} grayskull pypi ${{ env.PYTHON_ARTIFACT_DIR }}/*.tar.gz
-          # Find the directory containing meta.yaml.
+          micromamba run -n ${{ env.BUILD_ENV_NAME }} \
+            grayskull \
+              pypi \
+              -o "$recipe_dir" \
+              --package-indexes conda-forge accessnri \
+              -- ${{ env.PYTHON_ARTIFACT_DIR }}/*.tar.gz
+          # Find the directory containing the meta.yaml
           meta_yaml_dir=$(find "$recipe_dir" -name meta.yaml -exec dirname {} \;)
+          # Grayskull changes the package name to adhere to the anaconda naming conventions.
+          # We want the name to be the original one from the pyproject.toml, therefore we forcefully
+          # replace the name in the meta.yaml with the one from the pyproject.toml.
+          # Grayskull sets the original package name in the jinja2 variable `name`,
+          # therefore we can set the meta.yaml package.name to `{{ name }}`.
+          sed -i '/^package:/,/^[^# ]/ s/^\(\s*name:\s*\).*/\1{{ name }}/' "$meta_yaml_dir/meta.yaml"
           echo "Using the following conda recipe:"
           cat "$meta_yaml_dir/meta.yaml"
           echo "meta-yaml-dir=$meta_yaml_dir" >> $GITHUB_OUTPUT
