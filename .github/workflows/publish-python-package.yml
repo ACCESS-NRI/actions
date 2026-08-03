@@ -198,87 +198,87 @@ jobs:
           cat "$meta_yaml_dir/meta.yaml"
           echo "meta-yaml-dir=$meta_yaml_dir" >> $GITHUB_OUTPUT
 
-    #   - name: Publish package to Anaconda.org
-    #     id: publish-conda-package
-    #     if: ${{ inputs.conda-package }}
-    #     uses: ACCESS-NRI/action-build-and-upload-conda-packages@v3.1.0
-    #     with:
-    #       meta_yaml_dir: ${{ steps.create-recipe.outputs.meta-yaml-dir }}
-    #       user: ${{ secrets.ANACONDA_USERNAME }}
-    #       token: ${{ secrets.ANACONDA_TOKEN }}
+      - name: Publish package to Anaconda.org
+        id: publish-conda-package
+        if: ${{ inputs.conda-package }}
+        uses: ACCESS-NRI/action-build-and-upload-conda-packages@v3.1.0
+        with:
+          meta_yaml_dir: ${{ steps.create-recipe.outputs.meta-yaml-dir }}
+          user: ${{ secrets.ANACONDA_USERNAME }}
+          token: ${{ secrets.ANACONDA_TOKEN }}
 
-    #   - name: Upload conda artifact
-    #     uses: actions/upload-artifact@v7
-    #     if: ${{ inputs.conda-package }}
-    #     with:
-    #       name: ${{ env.CONDA_ARTIFACT_NAME }}
-    #       path: ${{ steps.publish-conda-package.outputs.paths }}
+      - name: Upload conda artifact
+        uses: actions/upload-artifact@v7
+        if: ${{ inputs.conda-package }}
+        with:
+          name: ${{ env.CONDA_ARTIFACT_NAME }}
+          path: ${{ steps.publish-conda-package.outputs.paths }}
         
-    #   - name: Publish package to PyPI
-    #     uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
-    #     if: ${{ inputs.pypi-package }}
-    #     with:
-    #       password: ${{ secrets.PYPI_TOKEN }}
-    #       packages-dir: ${{ env.PYTHON_ARTIFACT_DIR }}
-    #       verbose: true
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        if: ${{ inputs.pypi-package }}
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
+          packages-dir: ${{ env.PYTHON_ARTIFACT_DIR }}
+          verbose: true
     
-#   upload-artifact:
-#     name: Upload artifact with tarball and built packages
-#     runs-on: ubuntu-latest
-#     needs: [publish-package]
-#     # Run job if any needed job succeded, even if others are skipped or cancelled. 
-#     # Don't run if any needed job failed or no jobs succeded (all skipped or cancelled).
-#     if: ${{ always() && ! contains(needs.*.result, 'failure') && contains(needs.*.result, 'success') }}
-#     env:
-#       GH_TOKEN: ${{ github.token }}
-#     outputs:
-#       artifact-name: ${{ steps.set-output-artifact-name.outputs.artifact-name }}
-#     steps:
-#       # To avoid downloading artifacts produced by previous steps, we download the desired artifacts separately 
-#       - name: Download python artifact
-#         uses: actions/download-artifact@v8
-#         with:
-#           name: ${{ env.PYTHON_ARTIFACT_NAME }}
-#           path: ${{ env.PYTHON_ARTIFACT_DIR }}
+  upload-artifact:
+    name: Upload artifact with tarball and built packages
+    runs-on: ubuntu-latest
+    needs: [publish-package]
+    # Run job if any needed job succeded, even if others are skipped or cancelled. 
+    # Don't run if any needed job failed or no jobs succeded (all skipped or cancelled).
+    if: ${{ always() && ! contains(needs.*.result, 'failure') && contains(needs.*.result, 'success') }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      artifact-name: ${{ steps.set-output-artifact-name.outputs.artifact-name }}
+    steps:
+      # To avoid downloading artifacts produced by previous steps, we download the desired artifacts separately 
+      - name: Download python artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.PYTHON_ARTIFACT_NAME }}
+          path: ${{ env.PYTHON_ARTIFACT_DIR }}
       
-#       - name: Download conda artifact
-#         if: ${{ inputs.conda-package }}
-#         uses: actions/download-artifact@v8
-#         with:
-#           name: ${{ env.CONDA_ARTIFACT_NAME }}
-#           path: ${{ env.CONDA_ARTIFACT_DIR }}
+      - name: Download conda artifact
+        if: ${{ inputs.conda-package }}
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.CONDA_ARTIFACT_NAME }}
+          path: ${{ env.CONDA_ARTIFACT_DIR }}
         
-#       # To avoid having intermediary artifacts from previous steps
-#       # we delete the python and conda artifacts
-#       - name: Delete artifacts
-#         run: |
-#           for artifact_name in '${{ env.PYTHON_ARTIFACT_NAME }}' '${{ env.CONDA_ARTIFACT_NAME }}'; do
-#             # Get the artifact ID
-#             artifact_id=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
-#                 --jq ".artifacts[] | select(.name==\"$artifact_name\") | .id")
-#             # Delete the artifact
-#             if [ -n "$artifact_id" ]; then
-#                 gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$artifact_id &> /dev/null \
-#                   && echo "Deleted artifact '$artifact_name'." \
-#                   || echo "::warning::No permissions to delete artifact '$artifact_name'. Please run the workflow with \`permissions: actions: write\`"
-#             else
-#                 echo "Artifact '$artifact_name' not found."
-#             fi
-#           done
+      # To avoid having intermediary artifacts from previous steps
+      # we delete the python and conda artifacts
+      - name: Delete artifacts
+        run: |
+          for artifact_name in '${{ env.PYTHON_ARTIFACT_NAME }}' '${{ env.CONDA_ARTIFACT_NAME }}'; do
+            # Get the artifact ID
+            artifact_id=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
+                --jq ".artifacts[] | select(.name==\"$artifact_name\") | .id")
+            # Delete the artifact
+            if [ -n "$artifact_id" ]; then
+                gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$artifact_id &> /dev/null \
+                  && echo "Deleted artifact '$artifact_name'." \
+                  || echo "::warning::No permissions to delete artifact '$artifact_name'. Please run the workflow with \`permissions: actions: write\`"
+            else
+                echo "Artifact '$artifact_name' not found."
+            fi
+          done
 
-#       - name: Create output artifact directory
-#         run: |
-#           mkdir -p ${{ env.ARTIFACT_DIR }}
-#           mv ${{ env.PYTHON_ARTIFACT_DIR }}/* ${{ env.ARTIFACT_DIR }}
-#           if [ '${{ inputs.conda-package }}' = 'true' ]; then
-#             mv ${{ env.CONDA_ARTIFACT_DIR }}/* ${{ env.ARTIFACT_DIR }}
-#           fi
+      - name: Create output artifact directory
+        run: |
+          mkdir -p ${{ env.ARTIFACT_DIR }}
+          mv ${{ env.PYTHON_ARTIFACT_DIR }}/* ${{ env.ARTIFACT_DIR }}
+          if [ '${{ inputs.conda-package }}' = 'true' ]; then
+            mv ${{ env.CONDA_ARTIFACT_DIR }}/* ${{ env.ARTIFACT_DIR }}
+          fi
 
-#       - uses: actions/upload-artifact@v7
-#         with:
-#           name: ${{ env.ARTIFACT_NAME }}
-#           path: ${{ env.ARTIFACT_DIR }}/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACT_DIR }}/*
     
-#       - name: Set output artifact name
-#         id: set-output-artifact-name
-#         run: echo "artifact-name=${{ env.ARTIFACT_NAME }}" >> $GITHUB_OUTPUT
+      - name: Set output artifact name
+        id: set-output-artifact-name
+        run: echo "artifact-name=${{ env.ARTIFACT_NAME }}" >> $GITHUB_OUTPUT
