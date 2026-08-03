@@ -150,7 +150,7 @@ jobs:
         if: ${{ inputs.conda-package }}
         run: |
           env_file_lines=(
-            'name: ${{ env.BUILD_ENV_NAME }}'
+            'name: build-env'
             'channels:'
             '  - accessnri'
             '  - conda-forge'
@@ -166,7 +166,7 @@ jobs:
           printf "%s\n" "${env_file_lines[@]}" > '${{ env.BUILD_ENV_FILE }}'
 
       - name: Set up micromamba
-        uses: mamba-org/setup-micromamba@v3
+        uses: mamba-org/setup-micromamba@ce51e99f4bb8a82ab7158c4dc59ef4634c59c4f9 # v3.1.0
         if: ${{ inputs.conda-package }}
         with:
           environment-file: '${{ env.BUILD_ENV_FILE }}'
@@ -176,16 +176,16 @@ jobs:
         if: ${{ inputs.conda-package }}
         env:
           PYPROJECT_TOML: ${{ needs.inputs_sanity_check.outputs.pyproject_toml_dir }}/pyproject.toml
+        shell: micromamba-shell {0}
         run: |
           recipe_dir=${{ github.workspace }}/recipe
           mkdir -p "$recipe_dir"
           # Create conda recipe from the tarball
-          micromamba run -n ${{ env.BUILD_ENV_NAME }} \
-            grayskull \
-              pypi \
-              -o "$recipe_dir" \
-              --package-indexes conda-forge accessnri \
-              -- ${{ env.PYTHON_ARTIFACT_DIR }}/*.tar.gz
+          grayskull \
+            pypi \
+            -o "$recipe_dir" \
+            --package-indexes conda-forge accessnri -- \
+            ${{ env.PYTHON_ARTIFACT_DIR }}/*.tar.gz
           # Find the directory containing the meta.yaml
           meta_yaml_dir=$(find "$recipe_dir" -name meta.yaml -exec dirname {} \;)
           # Grayskull might change the recipe's package name (e.g., swaps hyphens with underscores).
@@ -215,7 +215,7 @@ jobs:
           path: ${{ steps.publish-conda-package.outputs.paths }}
         
       - name: Publish package to PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         if: ${{ inputs.pypi-package }}
         with:
           password: ${{ secrets.PYPI_TOKEN }}
