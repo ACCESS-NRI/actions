@@ -183,7 +183,7 @@ jobs:
           grayskull \
             pypi \
             -o "$recipe_dir" \
-            --package-indexes conda-forge accessnri -- \
+            --package-indexes accessnri conda-forge -- \
             ${{ env.PYTHON_ARTIFACT_DIR }}/*.tar.gz
           # Find the directory containing the meta.yaml
           meta_yaml_dir=$(find "$recipe_dir" -name meta.yaml -exec dirname {} \;)
