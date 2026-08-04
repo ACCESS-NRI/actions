@@ -116,11 +116,11 @@ jobs:
       - uses: actions/setup-python@v6
         
       - name: Install build dependencies
-        run: python -m pip install build ${{ inputs.pypi-package == 'true' && 'twine' || '' }}
+        run: python -m pip install build ${{ inputs.pypi-package && 'twine' || '' }}
 
       - name: Build distributions
         run: |
-          pyproject-build ${{ inputs.pypi-package == 'true' && '--sdist' || '' }} \
+          pyproject-build ${{ ! inputs.pypi-package && '--sdist' || '' }} \
             --outdir '${{ env.PYTHON_ARTIFACT_DIR }}' \
             '${{ needs.inputs_sanity_check.outputs.pyproject_toml_dir }}'
           echo Built files:
