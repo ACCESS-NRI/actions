@@ -39,12 +39,6 @@ env:
   PYTHON_ARTIFACT_DIR: ${{ github.workspace }}/_python_artifact_dir
   CONDA_ARTIFACT_NAME: conda_package
   BUILD_ENV_FILE: ${{ github.workspace }}/build_environment.yaml
-<<<<<<< HEAD
-  ARTIFACT_NAME: _dist_artifact
-  ARTIFACT_DIR: ${{ github.workspace }}/_dist_artifact_dir
-=======
-  BUILD_ENV_NAME: build-env
->>>>>>> 80c8527 (Updated artifact structure to separate conda and python artifacts)
 
 jobs:
   inputs_sanity_check:
