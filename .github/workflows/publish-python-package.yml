@@ -37,7 +37,6 @@ env:
   CONDA_ARTIFACT_NAME: _conda_artifact
   CONDA_ARTIFACT_DIR: ${{ github.workspace }}/_conda_artifact_dir
   BUILD_ENV_FILE: ${{ github.workspace }}/build_environment.yaml
-  BUILD_ENV_NAME: build-env
   ARTIFACT_NAME: _dist_artifact
   ARTIFACT_DIR: ${{ github.workspace }}/_dist_artifact_dir
 
