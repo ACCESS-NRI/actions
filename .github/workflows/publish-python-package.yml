@@ -125,12 +125,17 @@ jobs:
             '${{ needs.inputs_sanity_check.outputs.pyproject_toml_dir }}'
           echo Built files:
           ls -l '${{ env.PYTHON_ARTIFACT_DIR }}'
+        
+      - name: Validate PyPI package with twine
+        if: ${{ inputs.pypi-package }}
+        run: |
+          twine check --strict '${{ env.PYTHON_ARTIFACT_DIR }}'/*
 
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ env.PYTHON_ARTIFACT_NAME }}
           path: ${{ env.PYTHON_ARTIFACT_DIR }}/*
-  
+
   publish-package:
     name: Publish package
     runs-on: ubuntu-latest
@@ -147,7 +152,7 @@ jobs:
         with:
           name: ${{ env.PYTHON_ARTIFACT_NAME }}
           path: ${{ env.PYTHON_ARTIFACT_DIR }}
-        
+
       - name: Set micromamba environment file
         if: ${{ inputs.conda-package }}
         run: |
