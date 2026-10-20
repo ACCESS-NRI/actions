@@ -16,6 +16,13 @@ on:
         required: false
         default: true
         description: "Whether to create the Conda package and publish it to Anaconda.org"
+      dry-run:
+        type: boolean
+        required: false
+        default: false
+        description: |
+          Whether to perform a dry run without actually publishing the package.
+          This can be useful for testing the publishing workflow.
     outputs:
       python-artifact-name:
         description: "The name of the artifact containing the built python packages"
@@ -213,6 +220,7 @@ jobs:
           meta_yaml_dir: ${{ steps.create-recipe.outputs.meta-yaml-dir }}
           user: ${{ secrets.ANACONDA_USERNAME }}
           token: ${{ secrets.ANACONDA_TOKEN }}
+          upload: ${{ !inputs.dry-run }}
 
       - name: Upload conda artifact
         uses: actions/upload-artifact@v7
@@ -225,7 +233,7 @@ jobs:
         
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
-        if: ${{ inputs.pypi-package }}
+        if: inputs.pypi-package && !inputs.dry-run
         with:
           password: ${{ secrets.PYPI_TOKEN }}
           packages-dir: ${{ env.PYTHON_ARTIFACT_DIR }}
