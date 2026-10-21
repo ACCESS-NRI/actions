@@ -53,6 +53,7 @@ This workflow builds a Python wheel and source tarball from the project’s `pyp
 | pyproject-toml-dir | string | The directory where the `pyproject.toml` file is located, relative to the repository top-level directory. | NO | `.` | `path/to/pyproject/dir` |
 | pypi-package | bool | Whether to create the Python wheel and publish it to PyPI. | NO | `true` | `false` |
 | conda-package | bool | Whether to create the Conda package and publish it to Anaconda.org. | NO | `true` | `false` |
+| dry-run | bool | Whether to perform a dry run without actually publishing the package. This can be useful for testing the publishing workflow. | NO | `true` | `false` |
 
 ### Outputs
 
