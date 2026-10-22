@@ -221,6 +221,7 @@ jobs:
           user: ${{ secrets.ANACONDA_USERNAME }}
           token: ${{ secrets.ANACONDA_TOKEN }}
           upload: ${{ !inputs.dry-run }}
+          conda_build_args: -c accessnri -c conda-forge -c no-defaults
 
       - name: Upload conda artifact
         uses: actions/upload-artifact@v7
