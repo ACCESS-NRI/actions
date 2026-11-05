@@ -151,7 +151,7 @@ jobs:
 
       - name: Create Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 #v3.0.3
-        if: !inputs.dry-run
+        if: ${{ !inputs.dry-run }}
         with:
           tag_name: ${{ env.VERSION }}
           name: ${{ env.NAME }} ${{ env.VERSION }}
@@ -173,11 +173,7 @@ jobs:
     # Run this job if any of the previous jobs failed or the workflow was cancelled,
     # and the publish-python-package job did not succeed
     # Do not trigger if dry-run mode is active
-    if: >
-      always() && 
-      (failure() || cancelled()) &&
-      needs.publish-python-package.result != 'success' &&
-      !inputs.dry-run
+    if: ${{ always() && (failure() || cancelled()) && needs.publish-python-package.result != 'success' && !inputs.dry-run }}
     permissions:
       contents: write
     env:
