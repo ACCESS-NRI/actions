@@ -128,7 +128,6 @@ jobs:
   create-github-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    if: ${{ !inputs.dry-run }}
     needs: [get-package-info, publish-python-package]
     permissions:
       contents: write
@@ -137,13 +136,14 @@ jobs:
       NAME: ${{ needs.get-package-info.outputs.package-name }}
     steps:
       - name: Download Python artifact
+        if: needs.publish-python-package.outputs.python-artifact-name != '' && !inputs.dry-run
         uses: actions/download-artifact@v8
         with:
           name: ${{ needs.publish-python-package.outputs.python-artifact-name }}
           path: ${{ env.ARTIFACT_DIR }}/python
 
       - name: Download Conda artifact
-        if: ${{ needs.publish-python-package.outputs.conda-artifact-name != '' }}
+        if: needs.publish-python-package.outputs.conda-artifact-name != '' && !inputs.dry-run
         uses: actions/download-artifact@v8
         with:
           name: ${{ needs.publish-python-package.outputs.conda-artifact-name }}
@@ -151,28 +151,21 @@ jobs:
 
       - name: Create Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 #v3.0.3
+        if: !inputs.dry-run
         with:
           tag_name: ${{ env.VERSION }}
           name: ${{ env.NAME }} ${{ env.VERSION }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: ${{ env.ARTIFACT_DIR }}/**/*
-  
-  test-github-release:
-    name: Test GitHub Release
-    runs-on: ubuntu-latest
-    if: inputs.dry-run
-    needs: [get-package-info, publish-python-package]
-    permissions:
-      contents: write
-    env:
-      VERSION: ${{ needs.get-package-info.outputs.package-version }}
-      NAME: ${{ needs.get-package-info.outputs.package-name }}
-    steps:
+    
       - name: Test GitHub Release
+        if: inputs.dry-run
         run: |
           echo "::notice:: Dry-run mode active. GitHub Release would be created with the following info. Tag: ${{ env.VERSION }} | Name: ${{ env.NAME }} ${{ env.VERSION }}"
-    
+  
+  
+      
   cleanup-tag:
     name: Cleanup tag
     runs-on: ubuntu-latest
