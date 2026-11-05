@@ -65,16 +65,18 @@ jobs:
 
       - name: Check pyproject.toml directory
         id: check-pyproject-toml-dir
+        env:
+          PYPROJECT_TOML_DIR: ${{ inputs.pyproject-toml-dir }}
         run: |
           # Set the current repository root as the default pyproject_toml_dir value
-          if [ -z '${{ inputs.pyproject-toml-dir }}' ]; then
+          if [ -z "$PYPROJECT_TOML_DIR" ]; then
             pyproject_toml_dir="$PWD"
             if [[ ! -f "$pyproject_toml_dir"/pyproject.toml ]]; then
               echo "::error::No 'pyproject.toml' found in the repository top-level folder. To specify the directory of your 'pyproject.toml', please use the 'pyproject-toml-dir' input"
               exit 1
             fi
           else
-            pyproject_toml_dir='${{ inputs.pyproject-toml-dir }}'
+            pyproject_toml_dir="$PYPROJECT_TOML_DIR"
             if [[ ! -d "$pyproject_toml_dir" ]]; then
               echo "::error::Specified 'pyproject-toml-dir' directory '$pyproject_toml_dir' not found in the current repository"
               exit 1
@@ -88,27 +90,33 @@ jobs:
     
       - name: Check PyPI token
         if : ${{ inputs.pypi-package }} # Only if publishing to PyPI
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
         run: |
           # Check that 'secrets.PYPI_TOKEN' is not empty
-          if [ -z '${{ secrets.PYPI_TOKEN }}' ]; then
+          if [ -z "$PYPI_TOKEN" ]; then
               echo "::error::PYPI_TOKEN secret appears to be empty. Make sure to set a valid PYPI_TOKEN GitHub secret in the calling repository and call this workflow using \`secrets: inherit\`"
               exit 1
           fi
-      
+
       - name: Check Anaconda token
         if : ${{ inputs.conda-package }} # Only if publishing to Anaconda.org
+        env:
+          ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
         run: |
           # Check that 'secrets.ANACONDA_TOKEN' is not empty
-          if [ -z '${{ secrets.ANACONDA_TOKEN }}' ]; then
+          if [ -z "$ANACONDA_TOKEN" ]; then
               echo "::error::ANACONDA_TOKEN secret appears to be empty. Make sure to set a valid ANACONDA_TOKEN GitHub secret in the calling repository and call this workflow using \`secrets: inherit\`"
               exit 1
           fi
 
       - name: Check Anaconda username
         if : ${{ inputs.conda-package }} # Only if publishing to Anaconda.org
+        env:
+          ANACONDA_USERNAME: ${{ secrets.ANACONDA_USERNAME }}
         run: |
           # Check that 'secrets.ANACONDA_USERNAME' is not empty
-          if [ -z '${{ secrets.ANACONDA_USERNAME }}' ]; then
+          if [ -z "$ANACONDA_USERNAME" ]; then
               echo "::error::ANACONDA_USERNAME secret appears to be empty. Make sure to set a valid ANACONDA_USERNAME GitHub secret in the calling repository and call this workflow using \`secrets: inherit\`"
               exit 1
           fi
@@ -119,6 +127,8 @@ jobs:
     needs: inputs_sanity_check
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v6
         
