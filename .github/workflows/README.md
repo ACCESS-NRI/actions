@@ -80,50 +80,6 @@ jobs:
     secrets: inherit
 ```
 
-#### Create a GitHub release with the built packages and tarball
-```yaml
-on:
-  push:
-    tags:
-      - '**'
-jobs:
-  publish_python_package:
-    uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
-    secrets: inherit
-    permissions:
-      actions: write
-  
-  create-github-release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    needs: publish_python_package
-    permissions:
-      contents: write
-    steps:
-      - name: Download Python artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: ${{ needs.publish_python_package.outputs.python-artifact-name }}
-          path: my_artifact_dir/python
-
-      - name: Download Conda artifact
-        if: ${{ needs.publish_python_package.outputs.conda-artifact-name != '' }}
-        uses: actions/download-artifact@v8
-        with:
-          name: ${{ needs.publish_python_package.outputs.conda-artifact-name }}
-          path: my_artifact_dir/conda
-
-      - name: Create Release
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 #v2.3.3
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: my-package ${{ github.ref_name }}
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          files: |
-            my_artifact_dir/**/*
-```
-
 ## release-python-package workflow
 
 This workflow calls [publish-python-package](#publish-python-package-workflow) to build and publish a pure Python package distribution on Pypi and Anaconda.org. Then, it creates a GitHub release with the built distributions and the Conda package and recipe attached as artifacts.
@@ -132,7 +88,7 @@ This workflow calls [publish-python-package](#publish-python-package-workflow) t
 
 - When the calling workflow is triggered by a tag push, that exact tag is used for the release.
 - For other events, the version is read from `[project].version` in `pyproject.toml`. If the version is missing, the workflow fails. Otherwise, an annotated tag with that version is created and pushed before publishing.
-- No version prefix is added. Projects with a dynamic version (`[dynamic].version` in `pyproject.toml`) should use a tag-push trigger.
+- No version prefix is added. Projects with a dynamic version (`dynamic = ["version"]` in `pyproject.toml`) should use a tag-push trigger.
 
 ### Inputs
 
