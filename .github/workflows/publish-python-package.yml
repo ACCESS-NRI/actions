@@ -28,7 +28,7 @@ on:
         description: "The name of the artifact containing the built python packages"
         value: ${{ jobs.publish-package.outputs.python-artifact-name }}
       conda-artifact-name:
-        description: "The name of the artifact containing the built conda packages and recipe"
+        description: "The name of the artifact containing the built conda packages and recipe, or empty when conda-package is false"
         value: ${{ jobs.publish-package.outputs.conda-artifact-name }}
     secrets:
       PYPI_TOKEN:
@@ -253,5 +253,5 @@ jobs:
       - name: Set artifact name outputs
         id: set-artifact-name-outputs
         run: |
-          echo "python-artifact-name=${{ env.PYTHON_ARTIFACT_NAME }}" >> $GITHUB_OUTPUT
-          echo "conda-artifact-name=${{ env.CONDA_ARTIFACT_NAME }}" >> $GITHUB_OUTPUT
+          echo "python-artifact-name=${{ inputs.pypi-package && env.PYTHON_ARTIFACT_NAME || '' }}" >> $GITHUB_OUTPUT
+          echo "conda-artifact-name=${{ inputs.conda-package && env.CONDA_ARTIFACT_NAME || '' }}" >> $GITHUB_OUTPUT

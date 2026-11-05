@@ -59,8 +59,8 @@ This workflow builds a Python wheel and source tarball from the project’s `pyp
 
 | Name | Type | Description | Example |
 | --- | --- | --- | --- |
-| python-artifact-name | string | The name of the artifact containing the built python packages | `python-package` |
-| conda-artifact-name | string | The name of the artifact containing the built conda packages and recipe | `conda-package` |
+| python-artifact-name | string | The name of the artifact containing the built python packages; empty when `pypi-package` is `false` | `python_package` |
+| conda-artifact-name | string | The name of the artifact containing the built conda packages and recipe; empty when `conda-package` is `false` | `conda_package` |
 
 ### Usage
 
@@ -101,11 +101,18 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v5
+      - name: Download Python artifact
+        uses: actions/download-artifact@v8
         with:
-          name: ${{ needs.publish_python_package.outputs.artifact-name }}
-          path: my_artifact_dir
+          name: ${{ needs.publish_python_package.outputs.python-artifact-name }}
+          path: my_artifact_dir/python
+
+      - name: Download Conda artifact
+        if: ${{ needs.publish_python_package.outputs.conda-artifact-name != '' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.publish_python_package.outputs.conda-artifact-name }}
+          path: my_artifact_dir/conda
 
       - name: Create Release
         uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 #v2.3.3
@@ -115,5 +122,5 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            my_artifact_dir/*
+            my_artifact_dir/**/*
 ```

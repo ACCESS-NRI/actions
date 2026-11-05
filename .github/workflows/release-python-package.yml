@@ -25,10 +25,10 @@ on:
           This can be useful for testing the workflow.
     outputs:
       python-artifact-name:
-        description: "The name of the artifact containing the built python packages"
+        description: "The name of the artifact containing the built python packages, or empty when pypi-package is false"
         value: ${{ jobs.publish-python-package.outputs.python-artifact-name }}
       conda-artifact-name:
-        description: "The name of the artifact containing the built conda packages and recipe"
+        description: "The name of the artifact containing the built conda packages and recipe, or empty when conda-package is false"
         value: ${{ jobs.publish-python-package.outputs.conda-artifact-name }}
     secrets:
       PYPI_TOKEN:
@@ -136,11 +136,18 @@ jobs:
       VERSION: ${{ needs.get-package-info.outputs.package-version }}
       NAME: ${{ needs.get-package-info.outputs.package-name }}
     steps:
-      - name: Download artifact
+      - name: Download Python artifact
         uses: actions/download-artifact@v8
         with:
-          name: ${{ needs.publish-python-package.outputs.artifact-name }}
-          path: ${{ env.ARTIFACT_DIR }}
+          name: ${{ needs.publish-python-package.outputs.python-artifact-name }}
+          path: ${{ env.ARTIFACT_DIR }}/python
+
+      - name: Download Conda artifact
+        if: ${{ needs.publish-python-package.outputs.conda-artifact-name != '' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.publish-python-package.outputs.conda-artifact-name }}
+          path: ${{ env.ARTIFACT_DIR }}/conda
 
       - name: Create Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 #v3.0.3
@@ -149,7 +156,7 @@ jobs:
           name: ${{ env.NAME }} ${{ env.VERSION }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: ${{ env.ARTIFACT_DIR }}/*
+          files: ${{ env.ARTIFACT_DIR }}/**/*
   
   test-github-release:
     name: Test GitHub Release
