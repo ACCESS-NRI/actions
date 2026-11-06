@@ -81,7 +81,7 @@ jobs:
             # Not triggered on tag push. Read the version from pyproject.toml
             echo "::notice::Workflow not triggered on tag push. Getting version from pyproject.toml."
             package_version=$(yq '.project.version // ""' $PYPROJECT_TOML_DIR)
-            if [[ -z "$package_version" ]]; then
+            if [[ -z "$package_version" && '${{ inputs.dry-run }}' != true ]]; then
               echo "Error: Version not found in pyproject.toml"
               exit 1
             fi
