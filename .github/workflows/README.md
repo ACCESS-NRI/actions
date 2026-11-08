@@ -90,14 +90,21 @@ This workflow calls [publish-python-package](#publish-python-package-workflow) t
 - For other events, the version is read from `[project].version` in `pyproject.toml`. If the version is missing, the workflow fails. Otherwise, an annotated tag with that version is created and pushed before publishing.
 - No version prefix is added. Projects with a dynamic version (`dynamic = ["version"]` in `pyproject.toml`) should use a tag-push trigger.
 
+### Version check
+Version check is automatically performed using the [version-check](https://github.com/ACCESS-NRI/actions/blob/main/.github/actions/version-check/README.md) action. 
+To control this, use the `validate-version`, `version-scheme` and `version-prefix` inputs.
+
 ### Inputs
 
 | Name | Type | Description | Required | Default | Example |
 | ---- | ---- | ----------- | -------- | ------- | ------- |
-| pyproject-toml-dir | string | The directory containing `pyproject.toml`, relative to the repository top-level directory. | NO | `.` | `path/to/pyproject/dir` |
-| pypi-package | bool | Whether to publish the Python package to PyPI. | NO | `true` | `false` |
-| conda-package | bool | Whether to build and publish the Conda package to Anaconda.org. | NO | `true` | `false` |
-| dry-run | bool | Useful for testing releases. Build packages without publishing, creating a tag, or creating a GitHub release. The proposed tag and release are logged instead. | NO | `false` | `true` |
+| pyproject-toml-dir | string | The directory containing `pyproject.toml`, relative to the repository top-level directory | NO | `.` | `path/to/pyproject/dir` |
+| pypi-package | bool | Whether to publish the Python package to PyPI | NO | `true` | `false` |
+| conda-package | bool | Whether to build and publish the Conda package to Anaconda.org | NO | `true` | `false` |
+| dry-run | bool | Useful for testing releases. Build packages without publishing, creating a tag, or creating a GitHub release. The proposed tag and release are logged instead | NO | `false` | `true` |
+| validate-version | bool | Whether to validate the package version using access-nri's [version-check](https://github.com/ACCESS-NRI/actions/blob/main/.github/actions/version-check/README.md) action | NO | `true` | `false` |
+| version-scheme | bool | The version scheme to use when validating the package version (choices: `semver`, `semver-major-minor`). Default is `semver`. Not considered if validate-version is set to `false` | NO | `semver` | `semver-major-minor` |
+| version-prefix | bool | The prefix to use when validating the package version (e.g., `v` for versions like `v1.2.3`). Not considered if `validate-version` is set to `false`. | NO | | `v`, `dev` |
 
 At least one of `pypi-package` or `conda-package` must be `true`.
 

@@ -5,17 +5,17 @@ on:
       pyproject-toml-dir:
         type: string
         required: false
-        description: "The directory where the pyproject.toml file is located, relative to the repository top-level directory."
+        description: The directory where the pyproject.toml file is located, relative to the repository top-level directory.
       pypi-package:
         type: boolean
         required: false
         default: true
-        description: "Whether to release the pypi package"
+        description: Whether to release the pypi package.
       conda-package:
         type: boolean
         required: false
         default: true
-        description: "Whether to release the conda package"
+        description: Whether to release the conda package.
       dry-run:
         type: boolean
         required: false
@@ -23,6 +23,26 @@ on:
         description: |
           Whether to perform a dry run without actually publishing the package.
           This can be useful for testing the workflow.
+      validate-version:
+        type: boolean
+        required: false
+        default: true
+        description: |
+          Whether to validate the package version using access-nri's version-check action.
+      version-scheme:
+        type: string
+        required: false
+        default: semver
+        description: |
+          The version scheme to use when validating the package version (choices: "semver", "semver-major-minor").
+          Default is "semver".
+          Not considered if validate-version is set to false.
+      version-prefix:
+        type: string
+        required: false
+        description: |
+          The prefix to use when validating the package version (e.g., "v" for versions like "v1.2.3")
+          Not considered if validate-version is set to false.
     outputs:
       python-artifact-name:
         description: "The name of the artifact containing the built python packages. Empty when pypi-package is false"
@@ -108,7 +128,23 @@ jobs:
             git tag $TAG_NAME -m "$PACKAGE_NAME version $TAG_NAME. Tag created by the ${{ github.workflow }} workflow."
             git push origin $TAG_NAME
           fi
-  
+
+  check-version:
+    name: Check Version
+    runs-on: ubuntu-latest
+    needs: get-package-info
+    if: inputs.validate-version
+    steps:
+      - name: Check Version
+        uses: access-nri/actions/.github/actions/version-check@main
+        with:
+          versioning-scheme: ${{ inputs.version-scheme }}
+          prefix: ${{ inputs.version-prefix }}
+    
+      - name: Error message for invalid version
+        if: failure()
+        run: echo "::error::Invalid version detected. Please ensure the correct version-scheme and version-prefix are set. To avoid validating the version, run this workflow with 'validate-version: false'."
+
   publish-python-package:
     name: Publish Python Package
     uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
