@@ -105,8 +105,8 @@ At least one of `pypi-package` or `conda-package` must be `true`.
 
 | Name | Type | Description | Example |
 | --- | --- | --- | --- |
-| python-artifact-name | string | The name of the artifact containing the built Python packages; empty when `pypi-package` is `false` | `python_package` |
-| conda-artifact-name | string | The name of the artifact containing the built Conda packages and recipe; empty when `conda-package` is `false` | `conda_package` |
+| python-artifact-name | string | The name of the artifact containing the built Python packages. Empty when `pypi-package` is `false` | `python_package` |
+| conda-artifact-name | string | The name of the artifact containing the built Conda packages and recipe. Empty when `conda-package` is `false` | `conda_package` |
 
 ### Usage
 

@@ -25,10 +25,10 @@ on:
           This can be useful for testing the workflow.
     outputs:
       python-artifact-name:
-        description: "The name of the artifact containing the built python packages, or empty when pypi-package is false"
+        description: "The name of the artifact containing the built python packages. Empty when pypi-package is false"
         value: ${{ jobs.publish-python-package.outputs.python-artifact-name }}
       conda-artifact-name:
-        description: "The name of the artifact containing the built conda packages and recipe, or empty when conda-package is false"
+        description: "The name of the artifact containing the built conda packages and recipe. Empty when conda-package is false"
         value: ${{ jobs.publish-python-package.outputs.conda-artifact-name }}
     secrets:
       PYPI_TOKEN:
