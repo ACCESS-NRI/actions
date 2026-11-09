@@ -125,8 +125,8 @@ jobs:
           else
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git tag $TAG_NAME -m "$PACKAGE_NAME version $TAG_NAME. Tag created by the ${{ github.workflow }} workflow."
-            git push origin $TAG_NAME
+            git tag "$TAG_NAME" -m "$PACKAGE_NAME version $TAG_NAME. Tag created by the ${{ github.workflow }} workflow."
+            git push origin "$TAG_NAME"
           fi
 
   check-version:
