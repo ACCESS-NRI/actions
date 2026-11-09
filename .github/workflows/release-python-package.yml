@@ -148,7 +148,9 @@ jobs:
   publish-python-package:
     name: Publish Python Package
     uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
-    needs: get-package-info
+    needs: [get-package-info, check-version]
+    # Run if check-version is skipped, but not if any of the needed job fails
+    if: always() && !failure() && !cancelled()
     secrets: 
       PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
       ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
