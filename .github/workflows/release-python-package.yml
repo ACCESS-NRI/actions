@@ -1,0 +1,236 @@
+name: Release Python package
+on:
+  workflow_call:
+    inputs:
+      pyproject-toml-dir:
+        type: string
+        required: false
+        description: The directory where the pyproject.toml file is located, relative to the repository top-level directory.
+      pypi-package:
+        type: boolean
+        required: false
+        default: true
+        description: Whether to release the pypi package.
+      conda-package:
+        type: boolean
+        required: false
+        default: true
+        description: Whether to release the conda package.
+      dry-run:
+        type: boolean
+        required: false
+        default: false
+        description: |
+          Whether to perform a dry run without actually publishing the package.
+          This can be useful for testing the workflow.
+      validate-version:
+        type: boolean
+        required: false
+        default: true
+        description: |
+          Whether to validate the package version using access-nri's version-check action.
+      version-scheme:
+        type: string
+        required: false
+        default: semver
+        description: |
+          The version scheme to use when validating the package version (choices: "semver", "semver-major-minor").
+          Default is "semver".
+          Not considered if validate-version is set to false.
+      version-prefix:
+        type: string
+        required: false
+        description: |
+          The prefix to use when validating the package version (e.g., "v" for versions like "v1.2.3")
+          Not considered if validate-version is set to false.
+    outputs:
+      python-artifact-name:
+        description: "The name of the artifact containing the built python packages. Empty when pypi-package is false"
+        value: ${{ jobs.publish-python-package.outputs.python-artifact-name }}
+      conda-artifact-name:
+        description: "The name of the artifact containing the built conda packages and recipe. Empty when conda-package is false"
+        value: ${{ jobs.publish-python-package.outputs.conda-artifact-name }}
+    secrets:
+      PYPI_TOKEN:
+        description: "The PyPI token used for publishing the Python package on PyPI"
+        required: false 
+      ANACONDA_TOKEN:
+        description: "The Anaconda token used for publishing the Conda package on Anaconda.org"
+        required: false
+      ANACONDA_USERNAME:
+        description: "The Anaconda username used for publishing the Conda package on Anaconda.org"
+        required: false
+
+env:
+  ARTIFACT_DIR: ${{ github.workspace }}/_artifact_dir
+
+jobs:
+  get-package-info:
+    name: Get package info
+    runs-on: ubuntu-latest
+    outputs:
+      package-name: ${{ steps.get-package-name.outputs.package-name }}
+      package-version: ${{ steps.get-package-version.outputs.package-version }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+      
+      - name: Get name
+        id: get-package-name
+        env:
+          PYPROJECT_TOML_DIR: ${{ inputs.pyproject-toml-dir || '.' }}
+        run: |
+          echo "package-name=$(yq '.project.name' "$PYPROJECT_TOML_DIR"/pyproject.toml)" >> $GITHUB_OUTPUT
+      
+      - name: Get version
+        id: get-package-version
+        env:
+          PYPROJECT_TOML_DIR: ${{ inputs.pyproject-toml-dir || '.' }}/pyproject.toml
+        # If the workflow was triggered by a tag push, we will use the tag as the version,
+        # otherwise, we will read the version from pyproject.toml and make sure the version is valid.
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [[ ${{ github.event_name == 'push' && github.ref_type == 'tag' }} == true ]]; then
+            # Workflow triggered on tag push. Use the tag as the version
+            echo "::notice::Workflow triggered on tag push. Using version from pushed tag: $TAG"
+            echo "package-version=$TAG" >> $GITHUB_OUTPUT
+            echo "create-tag=false" >> $GITHUB_OUTPUT
+          else
+            # Not triggered on tag push. Read the version from pyproject.toml
+            echo "::notice::Workflow not triggered on tag push. Getting version from pyproject.toml."
+            package_version=$(yq '.project.version // ""' $PYPROJECT_TOML_DIR)
+            if [[ -z "$package_version" && '${{ inputs.dry-run }}' != true ]]; then
+              echo "Error: Version not found in pyproject.toml"
+              exit 1
+            fi
+            echo "::notice::Using version from pyproject.toml: $package_version"
+            echo "package-version=$package_version" >> $GITHUB_OUTPUT
+            echo "create-tag=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Tag
+        # Only create a tag if the version was not from a pushed tag
+        if: steps.get-package-version.outputs.create-tag == 'true'
+        env:
+          PACKAGE_NAME: ${{ steps.get-package-name.outputs.package-name }}
+          TAG_NAME: ${{ steps.get-package-version.outputs.package-version }}
+          GH_TOKEN: ${{ github.token }}
+        # Only actually create a tag if the dry-run option is not active, otherwise
+        # only logs the tag creation command instead of actually creating it
+        run: |
+          if [[ '${{ inputs.dry-run }}' == true ]]; then
+            echo "::notice::Dry-run mode active. The following tag would be created. Tag name: $TAG_NAME | Message: $PACKAGE_NAME version $TAG_NAME. Tag created by the ${{ github.workflow }} workflow.'"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag "$TAG_NAME" -m "$PACKAGE_NAME version $TAG_NAME. Tag created by the ${{ github.workflow }} workflow."
+            git push origin "$TAG_NAME"
+          fi
+
+  check-version:
+    name: Check Version
+    runs-on: ubuntu-latest
+    needs: get-package-info
+    if: inputs.validate-version
+    steps:
+      - name: Check Version
+        uses: $/.github/actions/version-check
+        with:
+          versioning-scheme: ${{ inputs.version-scheme }}
+          prefix: ${{ inputs.version-prefix }}
+          version: ${{ needs.get-package-info.outputs.package-version }}
+    
+      - name: Error message for invalid version
+        if: failure()
+        run: |
+          echo "::error::Invalid version detected. Please ensure the correct version-scheme and version-prefix are set. To avoid validating the version, run this workflow with 'validate-version: false'."
+
+  publish-python-package:
+    name: Publish Python Package
+    uses: $/.github/workflows/publish-python-package.yml
+    needs: [get-package-info, check-version]
+    # Run if check-version is skipped, but not if any of the needed job fails
+    if: always() && !failure() && !cancelled()
+    secrets: 
+      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+      ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
+      ANACONDA_USERNAME: ${{ secrets.ANACONDA_USERNAME }}
+    with:
+      pyproject-toml-dir: ${{ inputs.pyproject-toml-dir || '.' }}
+      pypi-package: ${{ inputs.pypi-package }}
+      conda-package: ${{ inputs.conda-package }}
+      dry-run: ${{ inputs.dry-run }}
+    permissions:
+      contents: read
+
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [get-package-info, publish-python-package]
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.get-package-info.outputs.package-version }}
+      NAME: ${{ needs.get-package-info.outputs.package-name }}
+    steps:
+      - name: Download Python artifact
+        if: needs.publish-python-package.outputs.python-artifact-name != '' && !inputs.dry-run
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.publish-python-package.outputs.python-artifact-name }}
+          path: ${{ env.ARTIFACT_DIR }}/python
+
+      - name: Download Conda artifact
+        if: needs.publish-python-package.outputs.conda-artifact-name != '' && !inputs.dry-run
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.publish-python-package.outputs.conda-artifact-name }}
+          path: ${{ env.ARTIFACT_DIR }}/conda
+
+      - name: Create Release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 #v3.0.3
+        if: ${{ !inputs.dry-run }}
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: ${{ env.NAME }} ${{ env.VERSION }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: ${{ env.ARTIFACT_DIR }}/**/*
+    
+      - name: Test GitHub Release
+        if: inputs.dry-run
+        run: |
+          echo "::notice:: Dry-run mode active. GitHub Release would be created with the following info. Tag: ${{ env.VERSION }} | Name: ${{ env.NAME }} ${{ env.VERSION }}"
+  
+  
+      
+  cleanup-tag:
+    name: Cleanup tag
+    runs-on: ubuntu-latest
+    needs: [get-package-info, create-github-release, publish-python-package]
+    # Run this job if any of the previous jobs failed or the workflow was cancelled,
+    # and the publish-python-package job did not succeed
+    # Do not trigger if dry-run mode is active
+    if: ${{ always() && (failure() || cancelled()) && needs.publish-python-package.result != 'success' && !inputs.dry-run }}
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+      
+      # Delete the newly created tag
+      - name: Cleanup tag
+        env:
+          GIT_TAG: ${{ needs.get-package-info.outputs.package-version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git push origin --delete "refs/tags/$GIT_TAG"
+          echo "::notice::Tag '$GIT_TAG' was deleted."

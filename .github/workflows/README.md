@@ -1,6 +1,7 @@
 # Workflow list
 
 - [validate-json](#validate-json-workflow)
+- [release-python-package](#release-python-package-workflow)
 - [publish-python-package](#publish-python-package-workflow)
 
 ## validate-json workflow
@@ -29,7 +30,84 @@ jobs:
       src: 'config'
 ```
 
+## release-python-package workflow
+
+This workflow calls [publish-python-package](#publish-python-package-workflow) to build and publish a pure Python package distribution on Pypi and Anaconda.org. Then, it creates a GitHub release with the built distributions and the Conda package and recipe attached as artifacts.
+
+### Version and tag selection
+
+- When the calling workflow is triggered by a tag push, that exact tag is used for the release.
+- For other events, the version is read from `[project].version` in `pyproject.toml`. If the version is missing, the workflow fails. Otherwise, an annotated tag with that version is created and pushed before publishing.
+- No version prefix is added. Projects with a dynamic version (`dynamic = ["version"]` in `pyproject.toml`) should use a tag-push trigger.
+
+### Version check
+Version check is automatically performed using the [version-check](https://github.com/ACCESS-NRI/actions/blob/main/.github/actions/version-check/README.md) action. 
+To control this, use the `validate-version`, `version-scheme` and `version-prefix` inputs.
+
+### Inputs
+
+| Name | Type | Description | Required | Default | Example |
+| ---- | ---- | ----------- | -------- | ------- | ------- |
+| pyproject-toml-dir | string | The directory containing `pyproject.toml`, relative to the repository top-level directory | NO | `.` | `path/to/pyproject/dir` |
+| pypi-package | bool | Whether to publish the Python package to PyPI | NO | `true` | `false` |
+| conda-package | bool | Whether to build and publish the Conda package to Anaconda.org | NO | `true` | `false` |
+| dry-run | bool | Useful for testing releases. Build packages without publishing, creating a tag, or creating a GitHub release. The proposed tag and release are logged instead | NO | `false` | `true` |
+| validate-version | bool | Whether to validate the package version using access-nri's [version-check](https://github.com/ACCESS-NRI/actions/blob/main/.github/actions/version-check/README.md) action | NO | `true` | `false` |
+| version-scheme | bool | The version scheme to use when validating the package version (choices: `semver`, `semver-major-minor`). Default is `semver`. Not considered if validate-version is set to `false` | NO | `semver` | `semver-major-minor` |
+| version-prefix | bool | The prefix to use when validating the package version (e.g., `v` for versions like `v1.2.3`). Not considered if `validate-version` is set to `false`. | NO | | `v`, `dev` |
+
+At least one of `pypi-package` or `conda-package` must be `true`.
+
+### Outputs
+
+| Name | Type | Description | Example |
+| --- | --- | --- | --- |
+| python-artifact-name | string | The name of the artifact containing the built Python packages. Empty when `pypi-package` is `false` | `python_package` |
+| conda-artifact-name | string | The name of the artifact containing the built Conda packages and recipe. Empty when `conda-package` is `false` | `conda_package` |
+
+### Usage
+
+> [!IMPORTANT]
+> This workflow sets the PyPI token, Anaconda token, and Anaconda username using the calling repository's secrets `PYPI_TOKEN`, `ANACONDA_TOKEN` and `ANACONDA_USERNAME`, respectively.
+> Make sure to define these secrets in the calling repository, and to call this workflow with `secrets: inherit`.
+
+#### Basic Usage
+
+```yaml
+on:
+  push:
+    tags:
+      - '**'
+
+jobs:
+  release:
+    uses: access-nri/actions/.github/workflows/release-python-package.yml@main
+    secrets: inherit
+    permissions:
+      contents: write
+```
+
+#### Test a package release without publishing anything
+```yaml
+on:
+  push:
+    tags:
+      - '**'
+
+jobs:
+  release:
+    uses: access-nri/actions/.github/workflows/release-python-package.yml@main
+    secrets: inherit
+    permissions:
+      contents: write
+    with:
+      dry-run: true
+```
+
 ## publish-python-package workflow
+
+> [!INFO]
+> For an out-of-the-box python package release workflow, which includes a GitHub Release and tag, consider using [release-python-package](#release-python-package-workflow) instead.
 
 This workflow builds and publishes a pure python package distribution on Pypi and Anaconda.org.
 
@@ -59,8 +137,8 @@ This workflow builds a Python wheel and source tarball from the project’s `pyp
 
 | Name | Type | Description | Example |
 | --- | --- | --- | --- |
-| python-artifact-name | string | The name of the artifact containing the built python packages | `python-package` |
-| conda-artifact-name | string | The name of the artifact containing the built conda packages and recipe | `conda-package` |
+| python-artifact-name | string | The name of the artifact containing the built python packages; empty when `pypi-package` is `false` | `python_package` |
+| conda-artifact-name | string | The name of the artifact containing the built conda packages and recipe; empty when `conda-package` is `false` | `conda_package` |
 
 ### Usage
 
@@ -74,46 +152,4 @@ jobs:
   publish_python_package:
     uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
     secrets: inherit
-    permissions:
-      actions: write
-```
-
-> [!TIP]
-> The `permissions: actions: write` is used to delete intermediary artifacts produced by the workflow. If omitted, the intermediary artifacts will not be deleted.
-
-#### Create a GitHub release with the built packages and tarball
-```yaml
-on:
-  push:
-    tags:
-      - '**'
-jobs:
-  publish_python_package:
-    uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
-    secrets: inherit
-    permissions:
-      actions: write
-  
-  create-github-release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    needs: publish_python_package
-    permissions:
-      contents: write
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: ${{ needs.publish_python_package.outputs.artifact-name }}
-          path: my_artifact_dir
-
-      - name: Create Release
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 #v2.3.3
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: my-package ${{ github.ref_name }}
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          files: |
-            my_artifact_dir/*
 ```
