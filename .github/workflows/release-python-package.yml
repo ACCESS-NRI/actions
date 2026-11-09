@@ -82,7 +82,7 @@ jobs:
         env:
           PYPROJECT_TOML_DIR: ${{ inputs.pyproject-toml-dir || '.' }}
         run: |
-          echo "package-name=$(yq '.project.name' ${{ env.PYPROJECT_TOML_DIR }}/pyproject.toml)" >> $GITHUB_OUTPUT
+          echo "package-name=$(yq '.project.name' "$PYPROJECT_TOML_DIR"/pyproject.toml)" >> $GITHUB_OUTPUT
       
       - name: Get version
         id: get-package-version
