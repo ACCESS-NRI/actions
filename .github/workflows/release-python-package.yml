@@ -140,6 +140,7 @@ jobs:
         with:
           versioning-scheme: ${{ inputs.version-scheme }}
           prefix: ${{ inputs.version-prefix }}
+          version: ${{ needs.get-package-info.outputs.package-version }}
     
       - name: Error message for invalid version
         if: failure()
