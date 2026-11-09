@@ -1,8 +1,8 @@
 # Workflow list
 
 - [validate-json](#validate-json-workflow)
-- [publish-python-package](#publish-python-package-workflow)
 - [release-python-package](#release-python-package-workflow)
+- [publish-python-package](#publish-python-package-workflow)
 
 ## validate-json workflow
 
@@ -28,56 +28,6 @@ jobs:
     uses: access-nri/actions/.github/workflows/validate-json.yml@main
     with:
       src: 'config'
-```
-
-## publish-python-package workflow
-
-> [!INFO]
-> For an out-of-the-box python package release workflow, which includes a GitHub Release and tag, consider using [release-python-package](#release-python-package-workflow) instead.
-
-This workflow builds and publishes a pure python package distribution on Pypi and Anaconda.org.
-
-> [!IMPORTANT]
-> This workflow only works for pure Python projects, where the built distribution is compatible with any supported Python version or architecture.
-
-> [!IMPORTANT]
-> This workflow sets the PyPI token, Anaconda token, and Anaconda username using the calling repository's secrets `PYPI_TOKEN`, `ANACONDA_TOKEN` and `ANACONDA_USERNAME`, respectively. 
-> Make sure to define these secrets in the calling repository, and to call this workflow with `secrets: inherit`. For more details, see [Usage](#usage).
-
-> [!NOTE]
-> This workflow does not support [PyPI Trusted Publisher](https://docs.pypi.org/trusted-publishers/) technology, as [it cannot be used within a reusable workflow at this time](https://github.com/pypa/gh-action-pypi-publish?tab=readme-ov-file#trusted-publishing). Therefore, a PyPI token is required to publish to PyPI.
-
-### About
-This workflow builds a Python wheel and source tarball from the project’s `pyproject.toml`, generates a conda recipe using [Grayskull](https://github.com/conda/grayskull), and builds the corresponding conda package. It then publishes the wheel to PyPI and the conda package to Anaconda.org. It also uploads the `python-package` and `conda-package` artifacts, containing the python packages, and conda packages and recipe, respectively.
-
-### Inputs
-
-| Name | Type | Description | Required | Default | Example |
-| ---- | ---- | ----------- | -------- | ------- | ------- |
-| pyproject-toml-dir | string | The directory where the `pyproject.toml` file is located, relative to the repository top-level directory. | NO | `.` | `path/to/pyproject/dir` |
-| pypi-package | bool | Whether to create the Python wheel and publish it to PyPI. | NO | `true` | `false` |
-| conda-package | bool | Whether to create the Conda package and publish it to Anaconda.org. | NO | `true` | `false` |
-| dry-run | bool | Whether to perform a dry run without actually publishing the package. This can be useful for testing the publishing workflow. | NO | `true` | `false` |
-
-### Outputs
-
-| Name | Type | Description | Example |
-| --- | --- | --- | --- |
-| python-artifact-name | string | The name of the artifact containing the built python packages; empty when `pypi-package` is `false` | `python_package` |
-| conda-artifact-name | string | The name of the artifact containing the built conda packages and recipe; empty when `conda-package` is `false` | `conda_package` |
-
-### Usage
-
-> [!IMPORTANT]
-> This workflow sets the PyPI token, Anaconda token, and Anaconda username using the calling repository's secrets `PYPI_TOKEN`, `ANACONDA_TOKEN` and `ANACONDA_USERNAME`, respectively.
-> Make sure to define these secrets in the calling repository, and to call this workflow with `secrets: inherit`.
-
-#### Basic usage
-```yaml
-jobs:
-  publish_python_package:
-    uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
-    secrets: inherit
 ```
 
 ## release-python-package workflow
@@ -152,4 +102,54 @@ jobs:
       contents: write
     with:
       dry-run: true
+```
+
+## publish-python-package workflow
+
+> [!INFO]
+> For an out-of-the-box python package release workflow, which includes a GitHub Release and tag, consider using [release-python-package](#release-python-package-workflow) instead.
+
+This workflow builds and publishes a pure python package distribution on Pypi and Anaconda.org.
+
+> [!IMPORTANT]
+> This workflow only works for pure Python projects, where the built distribution is compatible with any supported Python version or architecture.
+
+> [!IMPORTANT]
+> This workflow sets the PyPI token, Anaconda token, and Anaconda username using the calling repository's secrets `PYPI_TOKEN`, `ANACONDA_TOKEN` and `ANACONDA_USERNAME`, respectively. 
+> Make sure to define these secrets in the calling repository, and to call this workflow with `secrets: inherit`. For more details, see [Usage](#usage).
+
+> [!NOTE]
+> This workflow does not support [PyPI Trusted Publisher](https://docs.pypi.org/trusted-publishers/) technology, as [it cannot be used within a reusable workflow at this time](https://github.com/pypa/gh-action-pypi-publish?tab=readme-ov-file#trusted-publishing). Therefore, a PyPI token is required to publish to PyPI.
+
+### About
+This workflow builds a Python wheel and source tarball from the project’s `pyproject.toml`, generates a conda recipe using [Grayskull](https://github.com/conda/grayskull), and builds the corresponding conda package. It then publishes the wheel to PyPI and the conda package to Anaconda.org. It also uploads the `python-package` and `conda-package` artifacts, containing the python packages, and conda packages and recipe, respectively.
+
+### Inputs
+
+| Name | Type | Description | Required | Default | Example |
+| ---- | ---- | ----------- | -------- | ------- | ------- |
+| pyproject-toml-dir | string | The directory where the `pyproject.toml` file is located, relative to the repository top-level directory. | NO | `.` | `path/to/pyproject/dir` |
+| pypi-package | bool | Whether to create the Python wheel and publish it to PyPI. | NO | `true` | `false` |
+| conda-package | bool | Whether to create the Conda package and publish it to Anaconda.org. | NO | `true` | `false` |
+| dry-run | bool | Whether to perform a dry run without actually publishing the package. This can be useful for testing the publishing workflow. | NO | `true` | `false` |
+
+### Outputs
+
+| Name | Type | Description | Example |
+| --- | --- | --- | --- |
+| python-artifact-name | string | The name of the artifact containing the built python packages; empty when `pypi-package` is `false` | `python_package` |
+| conda-artifact-name | string | The name of the artifact containing the built conda packages and recipe; empty when `conda-package` is `false` | `conda_package` |
+
+### Usage
+
+> [!IMPORTANT]
+> This workflow sets the PyPI token, Anaconda token, and Anaconda username using the calling repository's secrets `PYPI_TOKEN`, `ANACONDA_TOKEN` and `ANACONDA_USERNAME`, respectively.
+> Make sure to define these secrets in the calling repository, and to call this workflow with `secrets: inherit`.
+
+#### Basic usage
+```yaml
+jobs:
+  publish_python_package:
+    uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
+    secrets: inherit
 ```
