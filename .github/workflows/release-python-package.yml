@@ -144,7 +144,8 @@ jobs:
     
       - name: Error message for invalid version
         if: failure()
-        run: echo "::error::Invalid version detected. Please ensure the correct version-scheme and version-prefix are set. To avoid validating the version, run this workflow with 'validate-version: false'."
+        run: |
+          echo "::error::Invalid version detected. Please ensure the correct version-scheme and version-prefix are set. To avoid validating the version, run this workflow with 'validate-version: false'."
 
   publish-python-package:
     name: Publish Python Package
