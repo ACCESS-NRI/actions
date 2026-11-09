@@ -231,5 +231,5 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git push origin ":$GIT_TAG"
+          git push origin --delete "refs/tags/$GIT_TAG"
           echo "::notice::Tag '$GIT_TAG' was deleted."
