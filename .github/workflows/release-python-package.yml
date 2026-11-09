@@ -136,7 +136,7 @@ jobs:
     if: inputs.validate-version
     steps:
       - name: Check Version
-        uses: access-nri/actions/.github/actions/version-check@main
+        uses: $/.github/actions/version-check
         with:
           versioning-scheme: ${{ inputs.version-scheme }}
           prefix: ${{ inputs.version-prefix }}
