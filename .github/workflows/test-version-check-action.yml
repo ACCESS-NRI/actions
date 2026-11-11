@@ -16,9 +16,22 @@ on:
 env:
   TAG_NAME: v1.2.3
   PREVIOUS_TAG_NAME: v1.2.2
-  PREVIOUS_TAG_NAME_WRONG: v1.2.1
 
 jobs:
+  sanity-check:
+    name: Sanity check on pushed tag
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    env:
+      PUSHED_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Check pushed tag
+        run: |
+          if [[ "$PUSHED_TAG" != "$TAG_NAME" ]]; then
+            echo "::error::Expected tag: $TAG_NAME | Got: $PUSHED_TAG | This workflow can only be tested by pushing tag $TAG_NAME"
+            exit 1
+          fi
+
   test-action-always:
     name: Test ${{ matrix.id }} - ${{ matrix.label }}
     runs-on: ubuntu-latest
@@ -221,163 +234,183 @@ jobs:
             exit 1
           fi
     
-  test-action-tag-push:
+  test-action-tag-push-no-previous-version:
     name: Test ${{ matrix.id }} - ${{ matrix.label }}
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    needs: sanity-check
     permissions:
       contents: write
-    env:
-      PUSHED_TAG: ${{ github.ref_name }}
-    concurrency:
-      group: ${{ github.workflow }}
-      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: 18
+            label: "Version and previous-version not provided"
+            description: |
+              Test action triggered by tag push, for a semver versioning scheme 
+              when none of the version or previous-version inputs are provided.
+              No previous version tag exists.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "prefix": "v"
+            outcome: "success"
+          - id: 19
+            label: "Previous-version provided, version not provided"
+            description: |
+              Test action triggered by tag push, for a semver versioning scheme 
+              when the version input is not provided but the previous-version input is provided.
+              No previous version tag exists.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "previous-version": "v1.2.2",
+                "prefix": "v"
+            outcome: "success"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      
+      - name: Description
+        run: echo "${{ matrix.description }}"
+
+      - name: Test
+        id: test-action
+        continue-on-error: true
+        uses: jenseng/dynamic-uses@8bc24f0360175e710da532c4d19eafdbed489a06 #v1.1.1 - Needed because github context is not supported within step.uses (https://github.com/actions/runner/issues/895)
+        with: 
+          uses: ${{ github.repository }}/.github/actions/version-check@${{github.sha}}
+          with: '{ ${{ matrix.inputs }} }'
+    
+      - name: Verify expected outcome
+        if: always()
+        run: |
+          if [[ '${{ matrix.outcome }}' == '${{ steps.test-action.outcome }}' ]]; then
+            exit 0
+          else
+            exit 1
+          fi
+
+  create-previous-version-tag:
+    name: Create previous version tag
+    runs-on: ubuntu-latest
+    # Also trigger if test-action-tag-push-no-previous-version fails
+    if: >
+      always() && 
+      startsWith(github.ref, 'refs/tags/') &&
+      needs.sanity-check.result == 'success'
+    needs: [sanity-check, test-action-tag-push-no-previous-version]
+    permissions:
+      contents: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Sanity check on pushed tag
-        run: |
-          if [[ "$PUSHED_TAG" != "$TAG_NAME" ]]; then
-            echo "::error::Expected tag: $TAG_NAME | Got: $PUSHED_TAG | This workflow can only be tested by pushing tag $TAG_NAME"
-            exit 1
-          fi
-
-      # No previous tags. Both version and previous-version not provided
-      # Expected result: success
-      - name: Test 1
-        id: test1
-        continue-on-error: true
-        uses: $/.github/actions/version-check
-        with:
-          versioning-scheme: "semver"
-          prefix: v
-      
-      - name: Test 1 report
-        id: test1-report
-        run: |
-          echo 'No previous tags. Both version and previous-version not provided'
-          if [[ '${{ steps.test1.outcome }}' == success ]]; then
-            exit 0
-          else
-            exit 1
-          fi
-      
-      # No previous tags. Version not provided but previous-version provided
-      # Expected result: success
-      - name: Test 2
-        id: test2
-        continue-on-error: true
-        uses: $/.github/actions/version-check
-        with:
-          versioning-scheme: semver
-          previous-version: ${{ env.PREVIOUS_TAG_NAME }}
-          prefix: v
-      
-      - name: Test 2 report
-        id: test2-report
-        run: |
-          echo 'No previous tags. Version not provided but previous-version provided'
-          if [[ '${{ steps.test2.outcome }}' == success ]]; then
-            exit 0
-          else
-            exit 1
-          fi
-      
       - name: Create previous-version tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "$PREVIOUS_TAG_NAME" -m '[skip ci]'
           git push origin "$PREVIOUS_TAG_NAME"
+  
+  test-action-tag-push-with-previous-version:
+    name: Test ${{ matrix.id }} - ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: create-previous-version-tag
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: 20
+            label: "Version and previous-version not provided"
+            description: |
+              Test action triggered by tag push, for a semver versioning scheme 
+              when none of the version or previous-version inputs are provided.
+              Previous version tag exists.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "prefix": "v"
+            outcome: "success"
+          - id: 21
+            label: "Incorrect previous-version provided"
+            description: |
+              Test action triggered by tag push, for a semver versioning scheme 
+              when an incorrect previous-version input is provided, and no version input is provided.
+              Previous version tag exists.
+              Test expected to fail.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "previous-version": "v0.1.2",
+                "prefix": "v"
+            outcome: "failure"
+          - id: 22
+            label: "Matching version provided, previous-version not provided"
+            description: |
+              Test action triggered by tag push, for a semver versioning scheme 
+              when a version input is provided and no previous-version input is provided.
+              Previous version tag exists.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "version": "v1.2.4",
+                "prefix": "v"
+            outcome: "success"
+          - id: 23
+            label: "Version provided, previous-version provided"
+            description: |
+              Test action triggered by tag push, for a semver versioning scheme 
+              when version and previous-version inputs are provided.
+              Previous version tag exists.
+              Test expected to succeed.
+            inputs: >-
+                "versioning-scheme": "semver",
+                "version": "v2.3.0",
+                "previous-version": "v2.2.14",
+                "prefix": "v"
+            outcome: "success"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
       
-      # Previous tag. Version and previous-version not provided
-      # Expected result: success
-      - name: Test 3
-        id: test3
+      - name: Description
+        run: echo "${{ matrix.description }}"
+
+      - name: Test
+        id: test-action
         continue-on-error: true
-        uses: $/.github/actions/version-check
-        with:
-          versioning-scheme: semver
-          prefix: v
-      
-      - name: Test 3 report
-        id: test3-report
+        uses: jenseng/dynamic-uses@8bc24f0360175e710da532c4d19eafdbed489a06 #v1.1.1 - Needed because github context is not supported within step.uses (https://github.com/actions/runner/issues/895)
+        with: 
+          uses: ${{ github.repository }}/.github/actions/version-check@${{github.sha}}
+          with: '{ ${{ matrix.inputs }} }'
+    
+      - name: Verify expected outcome
+        if: always()
         run: |
-          echo 'Previous tag. Version and previous-version not provided'
-          if [[ '${{ steps.test3.outcome }}' == success ]]; then
-            exit 0
-          else
-            exit 1
-          fi
-      
-      # Previous tag. Incorrect previous-version provided
-      # Expected result: failure
-      - name: Test 4
-        id: test4
-        continue-on-error: true
-        uses: $/.github/actions/version-check
-        with:
-          versioning-scheme: semver
-          prefix: v
-          previous-version: ${{ env.PREVIOUS_TAG_NAME_WRONG }}
-      
-      - name: Test 4 report
-        id: test4-report
-        run: |
-          echo 'Previous tag. Incorrect previous-version provided'
-          if [[ '${{ steps.test4.outcome }}' == failure ]]; then
-            exit 0
-          else
-            exit 1
-          fi
-      
-      # Previous tag. Matching version provided, previous-version not provided
-      # Expected result: success
-      - name: Test 5
-        id: test5
-        continue-on-error: true
-        uses: $/.github/actions/version-check
-        with:
-          versioning-scheme: semver
-          prefix: v
-          version: ${{ env.TAG_NAME }}
-      
-      - name: Test 5 report
-        id: test5-report
-        run: |
-          echo 'Previous tag. Matching version provided, previous-version not provided'
-          if [[ '${{ steps.test5.outcome }}' == success ]]; then
-            exit 0
-          else
-            exit 1
-          fi
-      
-      # Previous tag. Matching version provided, matching previous-version provided
-      # Expected result: success
-      - name: Test 6
-        id: test6
-        continue-on-error: true
-        uses: $/.github/actions/version-check
-        with:
-          versioning-scheme: semver
-          prefix: v
-          version: ${{ env.TAG_NAME }}
-          previous-version: ${{ env.PREVIOUS_TAG_NAME }}
-      
-      - name: Test 6 report
-        id: test6-report
-        run: |
-          echo 'Previous tag. Matching version provided, matching previous-version provided'
-          if [[ '${{ steps.test6.outcome }}' == success ]]; then
+          if [[ '${{ matrix.outcome }}' == '${{ steps.test-action.outcome }}' ]]; then
             exit 0
           else
             exit 1
           fi
 
+  cleanup-tags:
+    name: Cleanup test tags
+    runs-on: ubuntu-latest
+    if: always() && startsWith(github.ref, 'refs/tags/')
+    needs: test-action-tag-push-with-previous-version
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
       - name: Cleanup test tags
         if: always()
         run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
           git push origin --delete "$TAG_NAME"
           git push origin --delete "$PREVIOUS_TAG_NAME"
           echo "::notice::Testing tags have been deleted"
