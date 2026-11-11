@@ -171,11 +171,16 @@ runs:
             echo "::error::New version '$version' must be greater than previous version '$previous_version'."
             exit 1
           fi
-          # Make sure there are no jumps between version and previous version
-          if (( major > previous_major + 1 )) || \
-            (( minor > previous_minor + 1 )) || \
-            (( patch > previous_patch + 1 )); then
-            echo "::error::New version '$version' contains jumps from previous version '$previous_version'."
+          # Make sure version is a valid increment of the previous version, i.e. exactly one of:
+          # - major increment (minor and patch reset to 0)
+          # - minor increment (same major, patch reset to 0)
+          # - patch increment (same major and minor)
+          if ! (
+            (( major == previous_major + 1 && minor == 0 && patch == 0 )) || \
+            (( major == previous_major && minor == previous_minor + 1 && patch == 0 )) || \
+            (( major == previous_major && minor == previous_minor && patch == previous_patch + 1 ))
+          ); then
+            echo "::error::New version '$version' is not a valid increment (major, minor or patch) of previous version '$previous_version'."
             exit 1
           fi
         fi
