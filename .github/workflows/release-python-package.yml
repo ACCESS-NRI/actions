@@ -71,6 +71,7 @@ jobs:
     outputs:
       package-name: ${{ steps.get-package-name.outputs.package-name }}
       package-version: ${{ steps.get-package-version.outputs.package-version }}
+      is-tag-push: ${{ steps.get-package-version.outputs.is-tag-push }}
     permissions:
       contents: write
     steps:
@@ -95,8 +96,8 @@ jobs:
           if [[ ${{ github.event_name == 'push' && github.ref_type == 'tag' }} == true ]]; then
             # Workflow triggered on tag push. Use the tag as the version
             echo "::notice::Workflow triggered on tag push. Using version from pushed tag: $TAG"
-            echo "package-version=$TAG" >> $GITHUB_OUTPUT
-            echo "create-tag=false" >> $GITHUB_OUTPUT
+            is_tag_push=true
+            package_version="$TAG"
           else
             # Not triggered on tag push. Read the version from pyproject.toml
             echo "::notice::Workflow not triggered on tag push. Getting version from pyproject.toml."
@@ -106,13 +107,14 @@ jobs:
               exit 1
             fi
             echo "::notice::Using version from pyproject.toml: $package_version"
-            echo "package-version=$package_version" >> $GITHUB_OUTPUT
-            echo "create-tag=true" >> $GITHUB_OUTPUT
+            is_tag_push=false
           fi
+          echo "is-tag-push=$is_tag_push" >> $GITHUB_OUTPUT
+          echo "package-version=$package_version" >> $GITHUB_OUTPUT
 
       - name: Create Tag
         # Only create a tag if the version was not from a pushed tag
-        if: steps.get-package-version.outputs.create-tag == 'true'
+        if: steps.get-package-version.outputs.is-tag-push == 'false'
         env:
           PACKAGE_NAME: ${{ steps.get-package-name.outputs.package-name }}
           TAG_NAME: ${{ steps.get-package-version.outputs.package-version }}
@@ -140,7 +142,7 @@ jobs:
         with:
           versioning-scheme: ${{ inputs.version-scheme }}
           prefix: ${{ inputs.version-prefix }}
-          version: ${{ needs.get-package-info.outputs.package-version }}
+          version: ${{ needs.get-package-info.outputs.is-tag-push == 'false' && needs.get-package-info.outputs.package-version || '' }}
     
       - name: Error message for invalid version
         if: failure()
