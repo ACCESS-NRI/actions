@@ -76,7 +76,7 @@ runs:
           echo "::error::version input not provided and action not run within a workflow triggered by a tag push"
           exit 1
         fi
-        echo "::info::Performing sanity check on version: $version"
+        echo "::notice::Performing sanity check on version: $version"
         echo "version=$version" >> $GITHUB_OUTPUT
     
     - name: Set version regex
@@ -137,9 +137,9 @@ runs:
             )
           fi
           if [ -z "$previous_version" ]; then
-            echo "::info::No previous version tag found in the repository. Version sanity check against previous version will not be performed."
+            echo "::notice::No previous version tag found in the repository. Version sanity check against previous version will not be performed."
           else
-            echo "::info::Performing sanity check against previous version: $previous_version"
+            echo "::notice::Performing sanity check against previous version: $previous_version"
           fi
         fi
         echo "previous-version=$previous_version" >> $GITHUB_OUTPUT

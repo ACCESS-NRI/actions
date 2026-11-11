@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - '.github/actions/version-check/**'
-      - '.github/workflows/test-version-check.yml'
+      - '.github/workflows/test-version-check-action.yml'
 # # This can be uncommented when testing the action manually by pushing tags
 # # Together with this, the additional tests should be uncommented
 #   push: 
