@@ -76,7 +76,7 @@ runs:
           echo "::error::version input not provided and action not run within a workflow triggered by a tag push"
           exit 1
         fi
-        echo "::info::Performing sanity check on version: $version"
+        echo "::notice::Performing sanity check on version: $version"
         echo "version=$version" >> $GITHUB_OUTPUT
     
     - name: Set version regex
@@ -137,9 +137,9 @@ runs:
             )
           fi
           if [ -z "$previous_version" ]; then
-            echo "::info::No previous version tag found in the repository. Version sanity check against previous version will not be performed."
+            echo "::notice::No previous version tag found in the repository. Version sanity check against previous version will not be performed."
           else
-            echo "::info::Performing sanity check against previous version: $previous_version"
+            echo "::notice::Performing sanity check against previous version: $previous_version"
           fi
         fi
         echo "previous-version=$previous_version" >> $GITHUB_OUTPUT
@@ -171,11 +171,16 @@ runs:
             echo "::error::New version '$version' must be greater than previous version '$previous_version'."
             exit 1
           fi
-          # Make sure there are no jumps between version and previous version
-          if (( major > previous_major + 1 )) || \
-            (( minor > previous_minor + 1 )) || \
-            (( patch > previous_patch + 1 )); then
-            echo "::error::New version '$version' contains jumps from previous version '$previous_version'."
+          # Make sure version is a valid increment of the previous version, i.e. exactly one of:
+          # - major increment (minor and patch reset to 0)
+          # - minor increment (same major, patch reset to 0)
+          # - patch increment (same major and minor)
+          if ! (
+            (( major == previous_major + 1 && minor == 0 && patch == 0 )) || \
+            (( major == previous_major && minor == previous_minor + 1 && patch == 0 )) || \
+            (( major == previous_major && minor == previous_minor && patch == previous_patch + 1 ))
+          ); then
+            echo "::error::New version '$version' is not a valid increment (major, minor or patch) of previous version '$previous_version'."
             exit 1
           fi
         fi
