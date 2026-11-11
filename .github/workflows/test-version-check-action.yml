@@ -233,15 +233,15 @@ jobs:
       group: ${{ github.workflow }}
       cancel-in-progress: true
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
       - name: Sanity check on pushed tag
         run: |
           if [[ "$PUSHED_TAG" != "$TAG_NAME" ]]; then
             echo "::error::Expected tag: $TAG_NAME | Got: $PUSHED_TAG | This workflow can only be tested by pushing tag $TAG_NAME"
             exit 1
           fi
-    
-      - name: Check out repository
-        uses: actions/checkout@v6
 
       # No previous tags. Both version and previous-version not provided
       # Expected result: success
@@ -255,7 +255,6 @@ jobs:
       
       - name: Test 1 report
         id: test1-report
-        continue-on-error: true
         run: |
           echo 'No previous tags. Both version and previous-version not provided'
           if [[ '${{ steps.test1.outcome }}' == success ]]; then
@@ -277,7 +276,6 @@ jobs:
       
       - name: Test 2 report
         id: test2-report
-        continue-on-error: true
         run: |
           echo 'No previous tags. Version not provided but previous-version provided'
           if [[ '${{ steps.test2.outcome }}' == success ]]; then
@@ -288,6 +286,8 @@ jobs:
       
       - name: Create previous-version tag
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "$PREVIOUS_TAG_NAME" -m '[skip ci]'
           git push origin "$PREVIOUS_TAG_NAME"
       
@@ -303,7 +303,6 @@ jobs:
       
       - name: Test 3 report
         id: test3-report
-        continue-on-error: true
         run: |
           echo 'Previous tag. Version and previous-version not provided'
           if [[ '${{ steps.test3.outcome }}' == success ]]; then
@@ -325,7 +324,6 @@ jobs:
       
       - name: Test 4 report
         id: test4-report
-        continue-on-error: true
         run: |
           echo 'Previous tag. Incorrect previous-version provided'
           if [[ '${{ steps.test4.outcome }}' == failure ]]; then
@@ -347,7 +345,6 @@ jobs:
       
       - name: Test 5 report
         id: test5-report
-        continue-on-error: true
         run: |
           echo 'Previous tag. Matching version provided, previous-version not provided'
           if [[ '${{ steps.test5.outcome }}' == success ]]; then
@@ -370,7 +367,6 @@ jobs:
       
       - name: Test 6 report
         id: test6-report
-        continue-on-error: true
         run: |
           echo 'Previous tag. Matching version provided, matching previous-version provided'
           if [[ '${{ steps.test6.outcome }}' == success ]]; then
