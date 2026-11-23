@@ -88,6 +88,25 @@ jobs:
               errors+=$'\n- no list of target branches was provided'
             fi
           fi
+
+          # Validate tokens, so only well-formed commit hashes and branch names reach later steps
+          for commit in "${commits[@]}"; do
+            if [[ ! "$commit" =~ ^[0-9a-f]{7,40}$ ]]; then
+              invalid_commits+=" \`$commit\`"
+            fi
+          done
+          if [[ -n "$invalid_commits" ]]; then
+            errors+=$'\n'"- invalid commit hash(es):${invalid_commits}"
+          fi
+          for branch in "${branches[@]}"; do
+            if ! git check-ref-format --branch "$branch" > /dev/null 2>&1; then
+              invalid_branches+=" \`$branch\`"
+            fi
+          done
+          if [[ -n "$invalid_branches" ]]; then
+            errors+=$'\n'"- invalid branch name(s):${invalid_branches}"
+          fi
+
           if [[ -n "$errors" ]]; then
             errors="Incorrect cherry-pick command:$errors"
             printf "ERROR_MSG<<EOF\n%s\nEOF" "$errors" >> $GITHUB_ENV
@@ -215,27 +234,41 @@ jobs:
 
       - name: Determine branch information
         id: info
+        env:
+          TARGET: ${{ matrix.branch }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
         run: |
-          echo "new_branch=cherry_pick_from_pr${{ github.event.issue.number }}_into_${{ matrix.branch }}" >> $GITHUB_OUTPUT
-          echo "target_branch_url=[${{ matrix.branch }}](https://github.com/${{ github.repository }}/tree/${{ matrix.branch }})" >> $GITHUB_OUTPUT
+          echo "new_branch=cherry_pick_from_pr${PR_NUMBER}_into_${TARGET}" >> "$GITHUB_OUTPUT"
+          echo "target_branch_url=[${TARGET}](https://github.com/${REPO}/tree/${TARGET})" >> "$GITHUB_OUTPUT"
 
       - name: Cherry-pick commits
         id: cherry-pick
         continue-on-error: true
+        env:
+          NEW_BRANCH: ${{ steps.info.outputs.new_branch }}
+          TARGET: ${{ matrix.branch }}
+          COMMITS: ${{ needs.process_comment.outputs.commits }}
         run: |
-          git checkout -b ${{ steps.info.outputs.new_branch }} origin/${{ matrix.branch }}
-          git cherry-pick ${{ needs.process_comment.outputs.commits }}
+          read -ra commits <<< "$COMMITS"
+          git checkout -b "$NEW_BRANCH" "origin/$TARGET"
+          git cherry-pick "${commits[@]}"
 
       - name: Open pull request
         if: steps.cherry-pick.outcome == 'success'
         id: open_pr
         env:
           GH_TOKEN: ${{ github.token }}
+          NEW_BRANCH: ${{ steps.info.outputs.new_branch }}
+          TARGET: ${{ matrix.branch }}
+          TARGET_BRANCH_URL: ${{ steps.info.outputs.target_branch_url }}
+          COMMITS: ${{ needs.process_comment.outputs.commits }}
+          PR_NUMBER: ${{ github.event.issue.number }}
         run: |
-          git push --set-upstream origin ${{ steps.info.outputs.new_branch }}
-          url=$(gh pr create -B ${{ matrix.branch }} -t "Cherry-pick commits from #${{ github.event.issue.number }}" \
-            -b "Cherry-picking commit(s) ${{ needs.process_comment.outputs.commits }} from #${{ github.event.issue.number }} into ${{ steps.info.outputs.target_branch_url }}.")
-          echo "pr_url=$url" >> $GITHUB_OUTPUT
+          git push --set-upstream origin "$NEW_BRANCH"
+          url=$(gh pr create -B "$TARGET" -t "Cherry-pick commits from #${PR_NUMBER}" \
+            -b "Cherry-picking commit(s) ${COMMITS} from #${PR_NUMBER} into ${TARGET_BRANCH_URL}.")
+          echo "pr_url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Report success
         if: steps.cherry-pick.outcome == 'success'
@@ -247,7 +280,7 @@ jobs:
 
             The new pull request can be reviewed and approved [here](${{ steps.open_pr.outputs.pr_url }}).
         run: |
-          gh pr comment ${{ github.event.issue.number }} --body '${{ env.BODY }}'
+          gh pr comment "${{ github.event.issue.number }}" --body "$BODY"
 
       - name: Manual cherry-pick instructions
         if: steps.cherry-pick.outcome == 'failure'
@@ -273,4 +306,4 @@ jobs:
             ```
              5. Open a new pull request on github making sure the target branch is set to ${{ matrix.branch }}.
         run: |
-          gh pr comment ${{ github.event.issue.number }} --body '${{ env.BODY }}'
+          gh pr comment "${{ github.event.issue.number }}" --body "$BODY"
