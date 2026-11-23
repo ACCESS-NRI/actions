@@ -3,10 +3,11 @@
 - [validate-json](#validate-json-workflow)
 - [release-python-package](#release-python-package-workflow)
 - [publish-python-package](#publish-python-package-workflow)
+- [automatic-cherry-pick](#automatic-cherry-pick-workflow)
 
 ## validate-json workflow
 
-This workflow validates JSON (`*.json`) against a given schema (`*.schema.json`), provided they are in the same directory. 
+This workflow validates JSON (`*.json`) against a given schema (`*.schema.json`), provided they are in the same directory.
 
 ### Inputs
 
@@ -16,9 +17,9 @@ This workflow validates JSON (`*.json`) against a given schema (`*.schema.json`)
 
 ### Outputs
 
-There are no explicit outputs for this workflow. 
+There are no explicit outputs for this workflow.
 
-However, it does return job failure/success based on the result of the schema validations. 
+However, it does return job failure/success based on the result of the schema validations.
 
 ### Examples
 
@@ -41,7 +42,7 @@ This workflow calls [publish-python-package](#publish-python-package-workflow) t
 - No version prefix is added. Projects with a dynamic version (`dynamic = ["version"]` in `pyproject.toml`) should use a tag-push trigger.
 
 ### Version check
-Version check is automatically performed using the [version-check](https://github.com/ACCESS-NRI/actions/blob/main/.github/actions/version-check/README.md) action. 
+Version check is automatically performed using the [version-check](https://github.com/ACCESS-NRI/actions/blob/main/.github/actions/version-check/README.md) action.
 To control this, use the `validate-version`, `version-scheme` and `version-prefix` inputs.
 
 ### Inputs
@@ -115,7 +116,7 @@ This workflow builds and publishes a pure python package distribution on Pypi an
 > This workflow only works for pure Python projects, where the built distribution is compatible with any supported Python version or architecture.
 
 > [!IMPORTANT]
-> This workflow sets the PyPI token, Anaconda token, and Anaconda username using the calling repository's secrets `PYPI_TOKEN`, `ANACONDA_TOKEN` and `ANACONDA_USERNAME`, respectively. 
+> This workflow sets the PyPI token, Anaconda token, and Anaconda username using the calling repository's secrets `PYPI_TOKEN`, `ANACONDA_TOKEN` and `ANACONDA_USERNAME`, respectively.
 > Make sure to define these secrets in the calling repository, and to call this workflow with `secrets: inherit`. For more details, see [Usage](#usage).
 
 > [!NOTE]
@@ -153,3 +154,60 @@ jobs:
     uses: access-nri/actions/.github/workflows/publish-python-package.yml@main
     secrets: inherit
 ```
+
+## automatic-cherry-pick workflow
+
+This workflow cherry-picks commits from a merged pull request into one or more other branches, and opens a pull request for each target branch. It is triggered by a `!cherry-pick` command left as a comment on the merged pull request.
+
+### Command
+
+Comment on a merged pull request with:
+
+```
+!cherry-pick <commit_1> <commit_2> ... <commit_n> into <branch_1> <branch_2> ... <branch_n>
+```
+
+Only the first line containing `cherry-pick` in the comment is used, so the command can be followed by other text.
+
+### Inputs
+
+There are no inputs for this workflow.
+
+### Outputs
+
+There are no explicit outputs for this workflow.
+
+However, it does comment on the pull request with the result of each cherry-pick, and opens a pull request for each successful one.
+
+### Usage
+
+> [!IMPORTANT]
+> This workflow signs the cherry-picked commits using the calling repository's secrets `GH_ACTIONS_BOT_GPG_PRIVATE_KEY` and `GH_ACTIONS_BOT_GPG_PASSPHRASE`, and sets the committer using the variables `GH_ACTIONS_BOT_GIT_USER_NAME` and `GH_ACTIONS_BOT_GIT_USER_EMAIL`.
+> Make sure to define these secrets and variables in the calling repository, and to call this workflow with `secrets: inherit`.
+
+> [!NOTE]
+> The calling workflow must be triggered on `issue_comment` events of type `created`. Comments on issues, and comments that don't contain `!cherry-pick`, are skipped.
+
+#### Basic usage
+
+```yaml
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  cherry-pick:
+    uses: access-nri/actions/.github/workflows/automatic-cherry-pick.yml@main
+    secrets: inherit
+    permissions:
+      contents: write
+      pull-requests: write
+```
+
+#### Example command
+
+```
+!cherry-pick 1a2b3c4 5d6e7f8 into release-1.0 release-1.1
+```
+
+This opens two pull requests: one cherry-picking `1a2b3c4` and `5d6e7f8` into `release-1.0`, and one into `release-1.1`.
