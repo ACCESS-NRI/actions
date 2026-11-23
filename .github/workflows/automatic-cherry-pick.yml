@@ -35,7 +35,7 @@ jobs:
 
       - name: Checkout repository
         if: env.ERROR_MSG == ''
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # We need the history of all branches for the sanity checks
           fetch-depth: 0
@@ -79,16 +79,13 @@ jobs:
 
           # Check command correctness
           if [[ "$has_separator" = false ]]; then
-            errors="
-           - the command is missing the \\\`into\\\` separator."
+            errors='\n- the command is missing the \`into\` separator.'
           else
             if [[ -z "$commits" ]]; then
-              errors+="
-           - no list of commits to cherry-pick was provided"
+              errors+='\n- no list of commits to cherry-pick was provided'
             fi
             if [[ -z "$branches" ]]; then
-              errors+="
-           - no list of target branches was provided"
+              errors+='\n- no list of target branches was provided'
             fi
           fi
           if [[ -n "$errors" ]]; then
@@ -127,7 +124,7 @@ jobs:
             fi
           done
           if [[ -n "$missing_commits" ]]; then
-            echo "ERROR_MSG=Could not find commit(s) $missing_commits in [$target](${{ github.repositoryUrl }}/tree/$target)." >> $GITHUB_ENV
+            echo "ERROR_MSG=Could not find commit(s)${missing_commits} in [$target](${{ github.repositoryUrl }}/tree/$target)." >> $GITHUB_ENV
           fi
 
       - name: Check Target Branches
@@ -144,7 +141,7 @@ jobs:
             fi
           done
           if [[ -n "$missing_branches" ]]; then
-            echo "ERROR_MSG=Could not find branch(es) $missing_branches in repository." >> $GITHUB_ENV
+            echo "ERROR_MSG=Could not find branch(es)${missing_branches} in repository." >> $GITHUB_ENV
           fi
 
       - name: Check Previous Cherry-picks
@@ -164,12 +161,9 @@ jobs:
           if [[ -n "$duplicated_branches" ]]; then
             errors="It seems there are previous unfinished attempts to cherry-pick commits from this PR to the following branch(es):"
             for branch in $duplicated_branches; do
-              errors+="
-           - [$branch](https://${{ github.repository }}/tree/$branch)"
+              errors+="\n- [$branch](https://${{ github.repository }}/tree/$branch)"
             done
-            errors+="
-
-          If the current cherry-pick attempt is for a different set of commits, make sure that the previous attempts are fully merged and that the corresponding branches have been deleted."
+            errors+='\n\nIf the current cherry-pick attempt is for a different set of commits, make sure that the previous attempts are fully merged and that the corresponding branches have been deleted.'
              printf "ERROR_MSG<<EOF\n%s\nEOF" "$errors" >> $GITHUB_ENV
           fi
 
@@ -202,13 +196,13 @@ jobs:
         branch: ${{ fromJson(needs.process_comment.outputs.branch_matrix) }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # We need the history of all branches
           fetch-depth: 0
 
       - name: Import Commit-Signing Key
-        uses: crazy-max/ghaction-import-gpg@01dd5d3ca463c7f10f7f4f7b4f177225ac661ee4  # v6.1.0
+        uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd  # v7.0.0
         with:
           gpg_private_key: ${{ secrets.GH_ACTIONS_BOT_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GH_ACTIONS_BOT_GPG_PASSPHRASE }}
@@ -261,7 +255,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BODY: |
-            Automatic Git cherry-picking of commit(s) ${{ needs.process_comment.outputs.commits }} into ${{ steps.info.outputs.target_branch_url }} failed. This usually happens when cherry-picking results in a conflic or an empty commit. To manually cherry-pick the commits and open a pull request, please follow these instructions:
+            Automatic Git cherry-picking of commit(s) ${{ needs.process_comment.outputs.commits }} into ${{ steps.info.outputs.target_branch_url }} failed. This usually happens when cherry-picking results in a conflict or an empty commit. To manually cherry-pick the commits and open a pull request, please follow these instructions:
              1. Create new branch from target branch:
             ```console
             git checkout ${{ matrix.branch }}

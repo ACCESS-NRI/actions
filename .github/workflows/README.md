@@ -157,7 +157,7 @@ jobs:
 
 ## automatic-cherry-pick workflow
 
-This workflow cherry-picks commits from a merged pull request into one or more other branches, and opens a pull request for each target branch. It is triggered by a `!cherry-pick` command left as a comment on the merged pull request.
+This workflow cherry-picks commits from a merged pull request into one or more other branches, and opens a pull request for each target branch. It is used within workflows triggered by a `!cherry-pick` command left as a comment on the merged pull request.
 
 ### Command
 
