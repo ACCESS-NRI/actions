@@ -143,7 +143,7 @@ jobs:
             fi
           done
           if [[ -n "$missing_commits" ]]; then
-            echo "ERROR_MSG=Could not find commit(s)${missing_commits} in [$target](${{ github.repositoryUrl }}/tree/$target)." >> $GITHUB_ENV
+            echo "ERROR_MSG=Could not find commit(s)${missing_commits} in [$target](${{ github.server_url }}/${{ github.repository }}/tree/$target)." >> $GITHUB_ENV
           fi
 
       - name: Check Target Branches
@@ -180,7 +180,7 @@ jobs:
           if [[ -n "$duplicated_branches" ]]; then
             errors="It seems there are previous unfinished attempts to cherry-pick commits from this PR to the following branch(es):"
             for branch in $duplicated_branches; do
-              errors+=$'\n'"- [$branch](https://${{ github.repository }}/tree/$branch)"
+              errors+=$'\n'"- [$branch](${{ github.server_url }}/${{ github.repository }}/tree/$branch)"
             done
             errors+=$'\n\nIf the current cherry-pick attempt is for a different set of commits, make sure that the previous attempts are fully merged and that the corresponding branches have been deleted.'
             printf "ERROR_MSG<<EOF\n%s\nEOF" "$errors" >> $GITHUB_ENV
@@ -237,10 +237,10 @@ jobs:
         env:
           TARGET: ${{ matrix.branch }}
           PR_NUMBER: ${{ github.event.issue.number }}
-          REPO: ${{ github.repository }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
           echo "new_branch=cherry_pick_from_pr${PR_NUMBER}_into_${TARGET}" >> "$GITHUB_OUTPUT"
-          echo "target_branch_url=[${TARGET}](https://github.com/${REPO}/tree/${TARGET})" >> "$GITHUB_OUTPUT"
+          echo "target_branch_url=[${TARGET}](${REPO_URL}/tree/${TARGET})" >> "$GITHUB_OUTPUT"
 
       - name: Cherry-pick commits
         id: cherry-pick
