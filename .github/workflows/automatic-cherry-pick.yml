@@ -43,7 +43,7 @@ jobs:
       - name: Parse Command
         # Parse a command of the form:
         #
-        #   cherry-pick <hash_1> <hash_2> ... <hash_n> into <branch_1> <branch_2> ... <branch_n>
+        #   !cherry-pick <hash_1> <hash_2> ... <hash_n> into <branch_1> <branch_2> ... <branch_n>
         #
         # and generate lists of commits and branches for further processing.
         #
@@ -55,8 +55,15 @@ jobs:
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
           set -f
-          command_string=$(echo "$COMMENT_BODY" | grep -m 1 cherry-pick)
+          # Comments written in the web UI usually have CRLF line endings, which would leave a trailing '\r' on the last token
+          COMMENT_BODY=${COMMENT_BODY//$'\r'/}
+          # Only accept the command at the start of a line, so prose mentioning cherry-pick isn't parsed as the command
+          command_string=$(grep -m 1 -E '^[[:space:]]*!cherry-pick([[:space:]]|$)' <<< "$COMMENT_BODY" || true)
           echo "command=$command_string" >> $GITHUB_OUTPUT
+          if [[ -z "$command_string" ]]; then
+            echo "ERROR_MSG=No line starting with \`!cherry-pick\` was found in the comment." >> $GITHUB_ENV
+            exit 0
+          fi
           command=($command_string)
           command=("${command[@]:1}")
 
