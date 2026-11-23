@@ -79,13 +79,13 @@ jobs:
 
           # Check command correctness
           if [[ "$has_separator" = false ]]; then
-            errors='\n- the command is missing the \`into\` separator.'
+            errors=$'\n- the command is missing the `into` separator.'
           else
             if [[ -z "$commits" ]]; then
-              errors+='\n- no list of commits to cherry-pick was provided'
+              errors+=$'\n- no list of commits to cherry-pick was provided'
             fi
             if [[ -z "$branches" ]]; then
-              errors+='\n- no list of target branches was provided'
+              errors+=$'\n- no list of target branches was provided'
             fi
           fi
           if [[ -n "$errors" ]]; then
@@ -120,7 +120,7 @@ jobs:
             if git merge-base --is-ancestor ${commit} origin/$target; then
               echo "Commit $commit found in $target branch."
             else
-              missing_commits+=" \\\`$commit\\\`"
+              missing_commits+=" \`$commit\`"
             fi
           done
           if [[ -n "$missing_commits" ]]; then
@@ -137,7 +137,7 @@ jobs:
             if [[ -n "$(git ls-remote --heads origin ${branch})" ]]; then
               echo "Found branch $branch in repository."
             else
-              missing_branches+=" \\\`$branch\\\`"
+              missing_branches+=" \`$branch\`"
             fi
           done
           if [[ -n "$missing_branches" ]]; then
@@ -161,10 +161,10 @@ jobs:
           if [[ -n "$duplicated_branches" ]]; then
             errors="It seems there are previous unfinished attempts to cherry-pick commits from this PR to the following branch(es):"
             for branch in $duplicated_branches; do
-              errors+="\n- [$branch](https://${{ github.repository }}/tree/$branch)"
+              errors+=$'\n'"- [$branch](https://${{ github.repository }}/tree/$branch)"
             done
-            errors+='\n\nIf the current cherry-pick attempt is for a different set of commits, make sure that the previous attempts are fully merged and that the corresponding branches have been deleted.'
-             printf "ERROR_MSG<<EOF\n%s\nEOF" "$errors" >> $GITHUB_ENV
+            errors+=$'\n\nIf the current cherry-pick attempt is for a different set of commits, make sure that the previous attempts are fully merged and that the corresponding branches have been deleted.'
+            printf "ERROR_MSG<<EOF\n%s\nEOF" "$errors" >> $GITHUB_ENV
           fi
 
       - name: Status Report
