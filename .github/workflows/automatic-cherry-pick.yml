@@ -23,7 +23,18 @@ jobs:
       branch_matrix: ${{ steps.command.outputs.branch_matrix }}
       status: ${{ steps.report.outputs.status }}
     steps:
+      - name: Verify commenter permissions
+        id: perms
+        uses: $/.github/actions/commenter-permission-check
+        with:
+          minimum-permission: write
+
+      - name: Error if no permissions
+        if: steps.perms.outputs.has-permission == 'false'
+        run: echo "ERROR_MSG=${{ github.actor }} does not have permission to run this comment command." >> "$GITHUB_ENV"
+
       - name: Checkout repository
+        if: env.ERROR_MSG == ''
         uses: actions/checkout@v4
         with:
           # We need the history of all branches for the sanity checks
@@ -38,6 +49,7 @@ jobs:
         #
         # TODO: make this step into a separate job, so that we can handle more than one command per comment
         id: command
+        if: env.ERROR_MSG == ''
         shell: bash
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
