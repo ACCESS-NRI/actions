@@ -167,7 +167,7 @@ Comment on a merged pull request with:
 !cherry-pick <commit_1> <commit_2> ... <commit_n> into <branch_1> <branch_2> ... <branch_n>
 ```
 
-Only the first line containing `cherry-pick` in the comment is used, so the command can be followed by other text.
+Only the first line that starts with `!cherry-pick` is used, so the command can be preceded or followed by other text.
 
 ### Inputs
 
